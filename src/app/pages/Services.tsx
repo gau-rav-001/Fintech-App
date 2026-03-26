@@ -1,3 +1,4 @@
+import { useLanguage } from "../LanguageContext";
 import { useState } from "react";
 import { Link } from "react-router";
 import { Navbar } from "../components/Navbar";
@@ -17,143 +18,603 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { useLanguage } from "../LanguageContext";
 
-const services = [
+const servicesPageContent = {
+  en: {
+    heroBadge: "Premium Financial Services",
+    heroTitle: "Our Services",
+    heroDescription:
+      "Comprehensive financial solutions designed to help you achieve your goals and secure your future.",
+
+    gridBadge: "Tap Any Card To Explore",
+    gridDescription:
+      "Flip the cards to discover details and helpful resources.",
+    tapToExplore: "Tap to explore",
+    viewDetails: "View Details",
+    learnMore: "Learn More",
+    frontDescription:
+      "Smart financial support designed around your specific needs.",
+
+    whyBadge: "Why People Choose Us",
+    whyTitle: "Why Choose FinTech?",
+    whyDescription: "Your trusted partner for financial success",
+
+    featureExpertTeam: "Expert Team",
+    featureExpertTeamDesc:
+      "Certified financial advisors with years of experience",
+    featureSecurePlatform: "Secure Platform",
+    featureSecurePlatformDesc:
+      "Bank-grade security for your data and transactions",
+    featureSupport: "24/7 Support",
+    featureSupportDesc:
+      "Round-the-clock assistance when you need it",
+    featurePersonalized: "Personalized Service",
+    featurePersonalizedDesc:
+      "Tailored solutions for your unique needs",
+
+    ctaTitle: "Ready to Start Your Financial Journey?",
+    ctaDescription:
+      "Schedule a free consultation with our experts and begin building a smarter financial future today.",
+    ctaPrimary: "Get Started",
+    ctaSecondary: "Try Planner",
+
+    services: [
+      {
+        title: "Investment Planning",
+        description:
+          "Strategic investment plans designed to meet your financial goals with optimal returns.",
+        features: [
+          "Personalized investment strategies",
+          "Goal-based planning",
+          "Regular portfolio reviews",
+        ],
+        tag: "Goal Focused",
+      },
+      {
+        title: "Risk Management",
+        description:
+          "Protect your wealth with comprehensive risk assessment and management strategies.",
+        features: [
+          "Risk profiling",
+          "Insurance planning",
+          "Emergency fund setup",
+        ],
+        tag: "Capital Safety",
+      },
+      {
+        title: "Portfolio Management",
+        description:
+          "Diversified portfolio solutions to maximize returns while minimizing risks.",
+        features: [
+          "Asset allocation",
+          "Regular rebalancing",
+          "Performance tracking",
+          "Diversification strategies",
+        ],
+        tag: "Balanced Allocation",
+      },
+      {
+        title: "Wealth Growth",
+        description:
+          "Accelerate your wealth creation with proven investment strategies and insights.",
+        features: [
+          "Growth-focused investments",
+          "Compounding strategies",
+          "Market insights",
+        ],
+        tag: "Long-Term Growth",
+      },
+      {
+        title: "Tax Planning",
+        description:
+          "Smart tax-saving strategies to optimize your investments and maximize savings.",
+        features: [
+          "Tax-saving investments",
+          "Capital gains planning",
+          "Tax filing support",
+        ],
+        tag: "Tax Smart",
+      },
+      {
+        title: "Expert Guidance",
+        description:
+          "Personalized consultation from certified financial advisors and experts.",
+        features: [
+          "One-on-one consultations",
+          "Financial health checkup",
+          "Investment recommendations",
+          "Ongoing support",
+        ],
+        tag: "Advisor Support",
+      },
+      {
+        title: "Retirement Planning",
+        description:
+          "Secure your golden years with comprehensive retirement planning solutions.",
+        features: [
+          "Retirement corpus calculation",
+          "Pension planning",
+          "Healthcare planning",
+        ],
+        tag: "Future Ready",
+      },
+      {
+        title: "Estate Planning",
+        description:
+          "Ensure your legacy with proper estate and succession planning.",
+        features: [
+          "Will drafting",
+          "Succession planning",
+          "Wealth transfer",
+          "Legal documentation",
+        ],
+        tag: "Legacy Protection",
+      },
+    ],
+  },
+
+  hi: {
+    heroBadge: "प्रीमियम वित्तीय सेवाएं",
+    heroTitle: "हमारी सेवाएं",
+    heroDescription:
+      "आपके लक्ष्यों को पूरा करने और भविष्य को सुरक्षित करने के लिए व्यापक वित्तीय समाधान।",
+
+    gridBadge: "जानने के लिए किसी भी कार्ड पर टैप करें",
+    gridDescription:
+      "विवरण और उपयोगी जानकारी देखने के लिए कार्ड पलटें।",
+    tapToExplore: "जानने के लिए टैप करें",
+    viewDetails: "विवरण देखें",
+    learnMore: "और जानें",
+    frontDescription:
+      "आपकी जरूरतों के अनुसार बनाया गया स्मार्ट वित्तीय सहयोग।",
+
+    whyBadge: "लोग हमें क्यों चुनते हैं",
+    whyTitle: "FinTech क्यों चुनें?",
+    whyDescription: "वित्तीय सफलता के लिए आपका विश्वसनीय साथी",
+
+    featureExpertTeam: "विशेषज्ञ टीम",
+    featureExpertTeamDesc:
+      "वर्षों के अनुभव वाले प्रमाणित वित्तीय सलाहकार",
+    featureSecurePlatform: "सुरक्षित प्लेटफॉर्म",
+    featureSecurePlatformDesc:
+      "आपके डेटा और लेनदेन के लिए बैंक-स्तरीय सुरक्षा",
+    featureSupport: "24/7 सहायता",
+    featureSupportDesc:
+      "जब भी जरूरत हो, हर समय सहायता",
+    featurePersonalized: "व्यक्तिगत सेवा",
+    featurePersonalizedDesc:
+      "आपकी आवश्यकताओं के अनुसार समाधान",
+
+    ctaTitle: "क्या आप अपनी वित्तीय यात्रा शुरू करने के लिए तैयार हैं?",
+    ctaDescription:
+      "हमारे विशेषज्ञों के साथ निःशुल्क परामर्श लें और बेहतर वित्तीय भविष्य बनाना शुरू करें।",
+    ctaPrimary: "शुरू करें",
+    ctaSecondary: "प्लानर देखें",
+
+    services: [
+      {
+        title: "निवेश योजना",
+        description:
+          "आपके वित्तीय लक्ष्यों के लिए रणनीतिक निवेश योजनाएं।",
+        features: [
+          "व्यक्तिगत निवेश रणनीतियां",
+          "लक्ष्य-आधारित योजना",
+          "नियमित पोर्टफोलियो समीक्षा",
+        ],
+        tag: "लक्ष्य केंद्रित",
+      },
+      {
+        title: "जोखिम प्रबंधन",
+        description:
+          "व्यापक जोखिम मूल्यांकन और प्रबंधन रणनीतियों से अपनी संपत्ति सुरक्षित रखें।",
+        features: [
+          "जोखिम प्रोफाइलिंग",
+          "बीमा योजना",
+          "आपातकालीन फंड सेटअप",
+        ],
+        tag: "पूंजी सुरक्षा",
+      },
+      {
+        title: "पोर्टफोलियो प्रबंधन",
+        description:
+          "रिटर्न बढ़ाने और जोखिम कम करने के लिए विविध पोर्टफोलियो समाधान।",
+        features: [
+          "एसेट एलोकेशन",
+          "नियमित रीबैलेंसिंग",
+          "प्रदर्शन ट्रैकिंग",
+          "विविधीकरण रणनीतियां",
+        ],
+        tag: "संतुलित आवंटन",
+      },
+      {
+        title: "संपत्ति वृद्धि",
+        description:
+          "सिद्ध निवेश रणनीतियों और जानकारी से अपनी संपत्ति तेजी से बढ़ाएं।",
+        features: [
+          "वृद्धि-केंद्रित निवेश",
+          "कंपाउंडिंग रणनीतियां",
+          "मार्केट इनसाइट्स",
+        ],
+        tag: "दीर्घकालीन वृद्धि",
+      },
+      {
+        title: "कर योजना",
+        description:
+          "टैक्स बचत रणनीतियों से निवेश और बचत को बेहतर बनाएं।",
+        features: [
+          "टैक्स-बचत निवेश",
+          "कैपिटल गेन योजना",
+          "टैक्स फाइलिंग सहायता",
+        ],
+        tag: "टैक्स स्मार्ट",
+      },
+      {
+        title: "विशेषज्ञ मार्गदर्शन",
+        description:
+          "प्रमाणित वित्तीय सलाहकारों और विशेषज्ञों से व्यक्तिगत परामर्श।",
+        features: [
+          "वन-टू-वन परामर्श",
+          "वित्तीय स्वास्थ्य जांच",
+          "निवेश सुझाव",
+          "निरंतर सहायता",
+        ],
+        tag: "सलाहकार सहायता",
+      },
+      {
+        title: "सेवानिवृत्ति योजना",
+        description:
+          "समग्र सेवानिवृत्ति योजना समाधान के साथ अपने भविष्य को सुरक्षित करें।",
+        features: [
+          "रिटायरमेंट कॉर्पस गणना",
+          "पेंशन योजना",
+          "हेल्थकेयर योजना",
+        ],
+        tag: "भविष्य तैयार",
+      },
+      {
+        title: "एस्टेट प्लानिंग",
+        description:
+          "उचित उत्तराधिकार योजना के साथ अपनी विरासत सुरक्षित करें।",
+        features: [
+          "वसीयत तैयार करना",
+          "उत्तराधिकार योजना",
+          "संपत्ति हस्तांतरण",
+          "कानूनी दस्तावेज",
+        ],
+        tag: "विरासत सुरक्षा",
+      },
+    ],
+  },
+
+  mr: {
+    heroBadge: "प्रीमियम आर्थिक सेवा",
+    heroTitle: "आमच्या सेवा",
+    heroDescription:
+      "तुमची उद्दिष्टे पूर्ण करण्यासाठी आणि भविष्य सुरक्षित करण्यासाठी संपूर्ण आर्थिक उपाय.",
+
+    gridBadge: "कार्ड पाहण्यासाठी टॅप करा",
+    gridDescription:
+      "तपशील आणि उपयुक्त माहिती पाहण्यासाठी कार्ड पलटा.",
+    tapToExplore: "पाहण्यासाठी टॅप करा",
+    viewDetails: "तपशील पहा",
+    learnMore: "अधिक जाणून घ्या",
+    frontDescription:
+      "तुमच्या गरजांनुसार तयार केलेला स्मार्ट आर्थिक आधार.",
+
+    whyBadge: "लोक आम्हाला का निवडतात",
+    whyTitle: "FinTech का निवडावे?",
+    whyDescription: "आर्थिक यशासाठी तुमचा विश्वासू भागीदार",
+
+    featureExpertTeam: "तज्ज्ञ टीम",
+    featureExpertTeamDesc:
+      "वर्षांच्या अनुभवासह प्रमाणित आर्थिक सल्लागार",
+    featureSecurePlatform: "सुरक्षित प्लॅटफॉर्म",
+    featureSecurePlatformDesc:
+      "तुमच्या डेटासाठी आणि व्यवहारांसाठी बँक-स्तरीय सुरक्षा",
+    featureSupport: "24/7 सहाय्य",
+    featureSupportDesc:
+      "गरज पडल्यास नेहमी उपलब्ध मदत",
+    featurePersonalized: "वैयक्तिक सेवा",
+    featurePersonalizedDesc:
+      "तुमच्या गरजेनुसार उपाय",
+
+    ctaTitle: "तुमची आर्थिक यात्रा सुरू करण्यास तयार आहात?",
+    ctaDescription:
+      "आमच्या तज्ज्ञांसोबत मोफत सल्लामसलत घ्या आणि अधिक चांगले आर्थिक भविष्य घडवा.",
+    ctaPrimary: "सुरू करा",
+    ctaSecondary: "प्लॅनर वापरा",
+
+    services: [
+      {
+        title: "गुंतवणूक नियोजन",
+        description:
+          "तुमच्या आर्थिक उद्दिष्टांसाठी रणनीतिक गुंतवणूक योजना.",
+        features: [
+          "वैयक्तिक गुंतवणूक रणनीती",
+          "ध्येयाधारित नियोजन",
+          "नियमित पोर्टफोलिओ पुनरावलोकन",
+        ],
+        tag: "ध्येय केंद्रित",
+      },
+      {
+        title: "जोखीम व्यवस्थापन",
+        description:
+          "संपत्ती सुरक्षित ठेवण्यासाठी व्यापक जोखीम मूल्यांकन आणि व्यवस्थापन.",
+        features: [
+          "जोखीम प्रोफाइलिंग",
+          "विमा नियोजन",
+          "आपत्कालीन निधी सेटअप",
+        ],
+        tag: "भांडवल सुरक्षा",
+      },
+      {
+        title: "पोर्टफोलिओ व्यवस्थापन",
+        description:
+          "परतावा वाढवण्यासाठी आणि जोखीम कमी करण्यासाठी विविध पोर्टफोलिओ उपाय.",
+        features: [
+          "मालमत्ता वाटप",
+          "नियमित रीबॅलन्सिंग",
+          "कामगिरी ट्रॅकिंग",
+          "विविधीकरण रणनीती",
+        ],
+        tag: "संतुलित वाटप",
+      },
+      {
+        title: "संपत्ती वाढ",
+        description:
+          "सिद्ध गुंतवणूक रणनीती आणि माहितीने संपत्ती निर्मिती वेगवान करा.",
+        features: [
+          "वाढ-केंद्रित गुंतवणूक",
+          "कंपाउंडिंग रणनीती",
+          "मार्केट इनसाइट्स",
+        ],
+        tag: "दीर्घकालीन वाढ",
+      },
+      {
+        title: "कर नियोजन",
+        description:
+          "कर बचतीच्या रणनीतींनी गुंतवणूक आणि बचत सुधारित करा.",
+        features: [
+          "कर बचत गुंतवणूक",
+          "कॅपिटल गेन नियोजन",
+          "कर फाइलिंग मदत",
+        ],
+        tag: "कर स्मार्ट",
+      },
+      {
+        title: "तज्ज्ञ मार्गदर्शन",
+        description:
+          "प्रमाणित आर्थिक सल्लागार आणि तज्ज्ञांकडून वैयक्तिक सल्ला.",
+        features: [
+          "वन-टू-वन सल्लामसलत",
+          "आर्थिक आरोग्य तपासणी",
+          "गुंतवणूक शिफारसी",
+          "सतत सहाय्य",
+        ],
+        tag: "सल्लागार सहाय्य",
+      },
+      {
+        title: "निवृत्ती नियोजन",
+        description:
+          "संपूर्ण निवृत्ती नियोजन उपायांनी तुमचे भविष्य सुरक्षित करा.",
+        features: [
+          "निवृत्ती कॉर्पस गणना",
+          "पेन्शन नियोजन",
+          "हेल्थकेअर नियोजन",
+        ],
+        tag: "भविष्यासाठी तयार",
+      },
+      {
+        title: "वारसा नियोजन",
+        description:
+          "योग्य उत्तराधिकार नियोजनाने तुमचा वारसा सुरक्षित ठेवा.",
+        features: [
+          "वसीयत तयार करणे",
+          "उत्तराधिकार नियोजन",
+          "संपत्ती हस्तांतरण",
+          "कायदेशीर कागदपत्रे",
+        ],
+        tag: "वारसा संरक्षण",
+      },
+    ],
+  },
+
+  kn: {
+    heroBadge: "ಪ್ರೀಮಿಯಂ ಹಣಕಾಸು ಸೇವೆಗಳು",
+    heroTitle: "ನಮ್ಮ ಸೇವೆಗಳು",
+    heroDescription:
+      "ನಿಮ್ಮ ಗುರಿಗಳನ್ನು ಸಾಧಿಸಲು ಮತ್ತು ಭವಿಷ್ಯವನ್ನು ಸುರಕ್ಷಿತಗೊಳಿಸಲು ಸಮಗ್ರ ಹಣಕಾಸು ಪರಿಹಾರಗಳು.",
+
+    gridBadge: "ಅನ್ವೇಷಿಸಲು ಯಾವುದಾದರೂ ಕಾರ್ಡ್ ಅನ್ನು ಟ್ಯಾಪ್ ಮಾಡಿ",
+    gridDescription:
+      "ವಿವರಗಳು ಮತ್ತು ಉಪಯುಕ್ತ ಮಾಹಿತಿಯನ್ನು ನೋಡಲು ಕಾರ್ಡ್‌ಗಳನ್ನು ತಿರುಗಿಸಿ.",
+    tapToExplore: "ನೋಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ",
+    viewDetails: "ವಿವರಗಳನ್ನು ನೋಡಿ",
+    learnMore: "ಇನ್ನಷ್ಟು ತಿಳಿಯಿರಿ",
+    frontDescription:
+      "ನಿಮ್ಮ ಅಗತ್ಯಗಳಿಗೆ ಹೊಂದುವ ಸ್ಮಾರ್ಟ್ ಹಣಕಾಸು ಬೆಂಬಲ.",
+
+    whyBadge: "ಜನರು ನಮ್ಮನ್ನು ಏಕೆ ಆಯ್ಕೆ ಮಾಡುತ್ತಾರೆ",
+    whyTitle: "FinTech ಅನ್ನು ಏಕೆ ಆಯ್ಕೆ ಮಾಡಬೇಕು?",
+    whyDescription: "ಹಣಕಾಸು ಯಶಸ್ಸಿಗೆ ನಿಮ್ಮ ವಿಶ್ವಾಸಾರ್ಹ ಭಾಗಸ್ಫೂರ್ತಿ",
+
+    featureExpertTeam: "ತಜ್ಞ ತಂಡ",
+    featureExpertTeamDesc:
+      "ವರ್ಷಗಳ ಅನುಭವದ ಪ್ರಮಾಣಿತ ಹಣಕಾಸು ಸಲಹೆಗಾರರು",
+    featureSecurePlatform: "ಸುರಕ್ಷಿತ ವೇದಿಕೆ",
+    featureSecurePlatformDesc:
+      "ನಿಮ್ಮ ಡೇಟಾ ಮತ್ತು ವ್ಯವಹಾರಗಳಿಗೆ ಬ್ಯಾಂಕ್ ಮಟ್ಟದ ಭದ್ರತೆ",
+    featureSupport: "24/7 ಬೆಂಬಲ",
+    featureSupportDesc:
+      "ನಿಮಗೆ ಬೇಕಾದಾಗ ಎಲ್ಲ ಸಮಯದಲ್ಲೂ ಸಹಾಯ",
+    featurePersonalized: "ವೈಯಕ್ತಿಕ ಸೇವೆ",
+    featurePersonalizedDesc:
+      "ನಿಮ್ಮ ಅಗತ್ಯಗಳಿಗೆ ಹೊಂದಿದ ಪರಿಹಾರಗಳು",
+
+    ctaTitle: "ನಿಮ್ಮ ಹಣಕಾಸು ಪ್ರಯಾಣ ಪ್ರಾರಂಭಿಸಲು ಸಿದ್ಧವೇ?",
+    ctaDescription:
+      "ನಮ್ಮ ತಜ್ಞರೊಂದಿಗೆ ಉಚಿತ ಸಮಾಲೋಚನೆ ಪಡೆಯಿರಿ ಮತ್ತು ಉತ್ತಮ ಹಣಕಾಸು ಭವಿಷ್ಯ ನಿರ್ಮಿಸಲು ಪ್ರಾರಂಭಿಸಿ.",
+    ctaPrimary: "ಪ್ರಾರಂಭಿಸಿ",
+    ctaSecondary: "ಪ್ಲಾನರ್ ಪ್ರಯತ್ನಿಸಿ",
+
+    services: [
+      {
+        title: "ಹೂಡಿಕೆ ಯೋಜನೆ",
+        description:
+          "ನಿಮ್ಮ ಹಣಕಾಸು ಗುರಿಗಳಿಗೆ ತಕ್ಕ ತಂತ್ರಯುತ ಹೂಡಿಕೆ ಯೋಜನೆಗಳು.",
+        features: [
+          "ವೈಯಕ್ತಿಕ ಹೂಡಿಕೆ ತಂತ್ರಗಳು",
+          "ಗುರಿ ಆಧಾರಿತ ಯೋಜನೆ",
+          "ನಿಯಮಿತ ಪೋರ್ಟ್‌ಫೋಲಿಯೊ ವಿಮರ್ಶೆಗಳು",
+        ],
+        tag: "ಗುರಿ ಕೇಂದ್ರಿತ",
+      },
+      {
+        title: "ಅಪಾಯ ನಿರ್ವಹಣೆ",
+        description:
+          "ವಿಸ್ತೃತ ಅಪಾಯ ಮೌಲ್ಯಮಾಪನ ಮತ್ತು ನಿರ್ವಹಣಾ ತಂತ್ರಗಳಿಂದ ನಿಮ್ಮ ಸಂಪತ್ತನ್ನು ರಕ್ಷಿಸಿ.",
+        features: [
+          "ಅಪಾಯ ಪ್ರೊಫೈಲಿಂಗ್",
+          "ವಿಮೆ ಯೋಜನೆ",
+          "ತುರ್ತು ನಿಧಿ ವ್ಯವಸ್ಥೆ",
+        ],
+        tag: "ಮೂಲಧನ ಸುರಕ್ಷತೆ",
+      },
+      {
+        title: "ಪೋರ್ಟ್‌ಫೋಲಿಯೊ ನಿರ್ವಹಣೆ",
+        description:
+          "ಲಾಭ ಹೆಚ್ಚಿಸಿ ಅಪಾಯ ಕಡಿಮೆ ಮಾಡಲು ವೈವಿಧ್ಯಮಯ ಪೋರ್ಟ್‌ಫೋಲಿಯೊ ಪರಿಹಾರಗಳು.",
+        features: [
+          "ಆಸ್ತಿ ಹಂಚಿಕೆ",
+          "ನಿಯಮಿತ ಮರುಸಮತೋಲನ",
+          "ಕಾರ್ಯಕ್ಷಮತೆ ಟ್ರ್ಯಾಕಿಂಗ್",
+          "ವೈವಿಧ್ಯೀಕರಣ ತಂತ್ರಗಳು",
+        ],
+        tag: "ಸಮತೋಲನ ಹಂಚಿಕೆ",
+      },
+      {
+        title: "ಸಂಪತ್ತು ವೃದ್ಧಿ",
+        description:
+          "ಸಾಬೀತಾದ ಹೂಡಿಕೆ ತಂತ್ರಗಳು ಮತ್ತು ಒಳನೋಟಗಳಿಂದ ನಿಮ್ಮ ಸಂಪತ್ತಿನ ವೃದ್ಧಿಯನ್ನು ವೇಗಗೊಳಿಸಿ.",
+        features: [
+          "ವೃದ್ಧಿ ಕೇಂದ್ರಿತ ಹೂಡಿಕೆಗಳು",
+          "ಕಂಪೌಂಡಿಂಗ್ ತಂತ್ರಗಳು",
+          "ಮಾರ್ಕೆಟ್ ಒಳನೋಟಗಳು",
+        ],
+        tag: "ದೀರ್ಘಕಾಲದ ವೃದ್ಧಿ",
+      },
+      {
+        title: "ತೆರಿಗೆ ಯೋಜನೆ",
+        description:
+          "ತೆರಿಗೆ ಉಳಿತಾಯ ತಂತ್ರಗಳಿಂದ ಹೂಡಿಕೆ ಮತ್ತು ಉಳಿತಾಯವನ್ನು ಉತ್ತಮಗೊಳಿಸಿ.",
+        features: [
+          "ತೆರಿಗೆ ಉಳಿತಾಯ ಹೂಡಿಕೆಗಳು",
+          "ಕ್ಯಾಪಿಟಲ್ ಗೆನ್ಸ್ ಯೋಜನೆ",
+          "ತೆರಿಗೆ ಫೈಲಿಂಗ್ ಬೆಂಬಲ",
+        ],
+        tag: "ತೆರಿಗೆ ಸ್ಮಾರ್ಟ್",
+      },
+      {
+        title: "ತಜ್ಞ ಮಾರ್ಗದರ್ಶನ",
+        description:
+          "ಪ್ರಮಾಣಿತ ಹಣಕಾಸು ಸಲಹೆಗಾರರು ಮತ್ತು ತಜ್ಞರಿಂದ ವೈಯಕ್ತಿಕ ಸಮಾಲೋಚನೆ.",
+        features: [
+          "ಒನ್-ಟು-ಒನ್ ಸಮಾಲೋಚನೆ",
+          "ಹಣಕಾಸು ಆರೋಗ್ಯ ಪರಿಶೀಲನೆ",
+          "ಹೂಡಿಕೆ ಶಿಫಾರಸುಗಳು",
+          "ನಿರಂತರ ಬೆಂಬಲ",
+        ],
+        tag: "ಸಲಹೆಗಾರ ಬೆಂಬಲ",
+      },
+      {
+        title: "ನಿವೃತ್ತಿ ಯೋಜನೆ",
+        description:
+          "ಸಮಗ್ರ ನಿವೃತ್ತಿ ಯೋಜನೆ ಪರಿಹಾರಗಳಿಂದ ನಿಮ್ಮ ಭವಿಷ್ಯವನ್ನು ಸುರಕ್ಷಿತಗೊಳಿಸಿ.",
+        features: [
+          "ನಿವೃತ್ತಿ ನಿಧಿ ಲೆಕ್ಕಾಚಾರ",
+          "ಪಿಂಚಣಿ ಯೋಜನೆ",
+          "ಆರೋಗ್ಯ ಯೋಜನೆ",
+        ],
+        tag: "ಭವಿಷ್ಯ ಸಿದ್ಧ",
+      },
+      {
+        title: "ಎಸ್ಟೇಟ್ ಯೋಜನೆ",
+        description:
+          "ಸರಿಯಾದ ಉತ್ತರಾಧಿಕಾರ ಯೋಜನೆಯಿಂದ ನಿಮ್ಮ ಪರಂಪರೆಯನ್ನು ಸುರಕ್ಷಿತಗೊಳಿಸಿ.",
+        features: [
+          "ವಿಲ್ ರಚನೆ",
+          "ಉತ್ತರಾಧಿಕಾರ ಯೋಜನೆ",
+          "ಸಂಪತ್ತು ವರ್ಗಾವಣೆ",
+          "ಕಾನೂನು ದಾಖಲೆಗಳು",
+        ],
+        tag: "ಪಾರಂಪರಿಕ ರಕ್ಷಣೆ",
+      },
+    ],
+  },
+} as const;
+
+const servicesMeta = [
   {
     icon: <Target className="w-8 h-9" />,
-    title: "Investment Planning",
-    description:
-      "Strategic investment plans designed to meet your financial goals with optimal returns.",
-    features: [
-      "Personalized investment strategies",
-      "Goal-based planning",
-      "Regular portfolio reviews",
-    ],
     learnMoreUrl:
       "https://www.investor.gov/introduction-investing",
-    tag: "Goal Focused",
     accent: "from-emerald-700 to-green-500",
     softBg: "from-emerald-50/80 to-green-100/40",
     glow: "bg-emerald-300/25",
   },
   {
     icon: <Shield className="w-8 h-8" />,
-    title: "Risk Management",
-    description:
-      "Protect your wealth with comprehensive risk assessment and management strategies.",
-    features: [
-      "Risk profiling",
-      "Insurance planning",
-      "Emergency fund setup",
-    ],
     learnMoreUrl:
       "https://www.investor.gov/introduction-investing/getting-started/asset-allocation",
-    tag: "Capital Safety",
     accent: "from-teal-700 to-emerald-500",
     softBg: "from-teal-50/80 to-emerald-100/40",
     glow: "bg-teal-300/25",
   },
   {
     icon: <PieChart className="w-8 h-8" />,
-    title: "Portfolio Management",
-    description:
-      "Diversified portfolio solutions to maximize returns while minimizing risks.",
-    features: [
-      "Asset allocation",
-      "Regular rebalancing",
-      "Performance tracking",
-      "Diversification strategies",
-    ],
     learnMoreUrl:
       "https://www.investor.gov/introduction-investing/investing-basics/glossary/diversification",
-    tag: "Balanced Allocation",
     accent: "from-sky-700 to-cyan-500",
     softBg: "from-sky-50/80 to-cyan-100/40",
     glow: "bg-sky-300/25",
   },
   {
     icon: <TrendingUp className="w-8 h-8" />,
-    title: "Wealth Growth",
-    description:
-      "Accelerate your wealth creation with proven investment strategies and insights.",
-    features: [
-      "Growth-focused investments",
-      "Compounding strategies",
-      "Market insights",
-    ],
     learnMoreUrl:
       "https://www.investor.gov/additional-resources/general-resources/publications-research/info-sheets/beginners-guide-asset",
-    tag: "Long-Term Growth",
     accent: "from-lime-700 to-green-500",
     softBg: "from-lime-50/80 to-green-100/40",
     glow: "bg-lime-300/25",
   },
   {
     icon: <Calculator className="w-8 h-8" />,
-    title: "Tax Planning",
-    description:
-      "Smart tax-saving strategies to optimize your investments and maximize savings.",
-    features: [
-      "Tax-saving investments",
-      "Capital gains planning",
-      "Tax filing support",
-    ],
     learnMoreUrl:
       "https://www.irs.gov/newsroom/year-round-tax-planning-pointers-for-taxpayers",
-    tag: "Tax Smart",
     accent: "from-amber-700 to-orange-500",
     softBg: "from-amber-50/80 to-orange-100/40",
     glow: "bg-amber-300/25",
   },
   {
     icon: <Users className="w-8 h-8" />,
-    title: "Expert Guidance",
-    description:
-      "Personalized consultation from certified financial advisors and experts.",
-    features: [
-      "One-on-one consultations",
-      "Financial health checkup",
-      "Investment recommendations",
-      "Ongoing support",
-    ],
     learnMoreUrl:
       "https://www.investor.gov/introduction-investing/getting-started/working-investment-professional",
-    tag: "Advisor Support",
     accent: "from-violet-700 to-fuchsia-500",
     softBg: "from-violet-50/80 to-fuchsia-100/40",
     glow: "bg-violet-300/25",
   },
   {
     icon: <Briefcase className="w-8 h-8" />,
-    title: "Retirement Planning",
-    description:
-      "Secure your golden years with comprehensive retirement planning solutions.",
-    features: [
-      "Retirement corpus calculation",
-      "Pension planning",
-      "Healthcare planning",
-    ],
     learnMoreUrl:
       "https://www.ssa.gov/retirement/plan-for-retirement",
-    tag: "Future Ready",
     accent: "from-indigo-700 to-blue-500",
     softBg: "from-indigo-50/80 to-blue-100/40",
     glow: "bg-indigo-300/25",
   },
   {
     icon: <Award className="w-8 h-8" />,
-    title: "Estate Planning",
-    description:
-      "Ensure your legacy with proper estate and succession planning.",
-    features: [
-      "Will drafting",
-      "Succession planning",
-      "Wealth transfer",
-      "Legal documentation",
-    ],
     learnMoreUrl:
       "https://www.consumerfinance.gov/consumer-tools/managing-someone-elses-money/",
-    tag: "Legacy Protection",
     accent: "from-rose-700 to-pink-500",
     softBg: "from-rose-50/80 to-pink-100/40",
     glow: "bg-rose-300/25",
@@ -161,6 +622,15 @@ const services = [
 ];
 
 export function Services() {
+  const { language } = useLanguage();
+  const page =
+    servicesPageContent[language as keyof typeof servicesPageContent];
+
+  const mergedServices = servicesMeta.map((meta, index) => ({
+    ...meta,
+    ...page.services[index],
+  }));
+
   return (
     <div className="min-h-screen bg-[#F7F9FB]">
       <Navbar />
@@ -183,16 +653,15 @@ export function Services() {
             className="text-center max-w-3xl mx-auto"
           >
             <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs text-white/85 backdrop-blur mb-4">
-              Premium Financial Services
+              {page.heroBadge}
             </div>
 
             <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-[-0.03em]">
-              Our Services
+              {page.heroTitle}
             </h1>
 
             <p className="text-lg md:text-xl text-white/85 leading-8">
-              Comprehensive financial solutions designed to help
-              you achieve your goals and secure your future.
+              {page.heroDescription}
             </p>
           </motion.div>
         </div>
@@ -207,20 +676,23 @@ export function Services() {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <div className="inline-flex items-center rounded-full border border-[#d7eadf] bg-white/70 backdrop-blur px-4 py-2 text-sm font-medium text-[#1A5F3D] mb-4">
-              Tap Any Card To Explore
+              {page.gridBadge}
             </div>
             <p className="text-gray-600 text-lg">
-              Flip the cards to discover details and helpful
-              resources.
+              {page.gridDescription}
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
-            {services.map((service, index) => (
+            {mergedServices.map((service, index) => (
               <ServiceFlipCard
                 key={index}
                 {...service}
                 index={index}
+                frontDescription={page.frontDescription}
+                tapToExplore={page.tapToExplore}
+                viewDetails={page.viewDetails}
+                learnMoreLabel={page.learnMore}
               />
             ))}
           </div>
@@ -235,37 +707,37 @@ export function Services() {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <div className="inline-flex items-center rounded-full border border-[#d7eadf] bg-[#f6fbf8] px-4 py-2 text-sm font-medium text-[#1A5F3D] mb-5">
-              Why People Choose Us
+              {page.whyBadge}
             </div>
 
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Why Choose SmartFinance?
+              {page.whyTitle}
             </h2>
             <p className="text-xl text-gray-600">
-              Your trusted partner for financial success
+              {page.whyDescription}
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             <FeatureCard
               icon={<Award className="w-8 h-8" />}
-              title="Expert Team"
-              description="Certified financial advisors with years of experience"
+              title={page.featureExpertTeam}
+              description={page.featureExpertTeamDesc}
             />
             <FeatureCard
               icon={<Shield className="w-8 h-8" />}
-              title="Secure Platform"
-              description="Bank-grade security for your data and transactions"
+              title={page.featureSecurePlatform}
+              description={page.featureSecurePlatformDesc}
             />
             <FeatureCard
               icon={<Clock className="w-8 h-8" />}
-              title="24/7 Support"
-              description="Round-the-clock assistance when you need it"
+              title={page.featureSupport}
+              description={page.featureSupportDesc}
             />
             <FeatureCard
               icon={<HeadphonesIcon className="w-8 h-8" />}
-              title="Personalized Service"
-              description="Tailored solutions for your unique needs"
+              title={page.featurePersonalized}
+              description={page.featurePersonalizedDesc}
             />
           </div>
         </div>
@@ -282,11 +754,10 @@ export function Services() {
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="inline-block rounded-[28px] border border-white/15 bg-white/10 backdrop-blur-xl px-8 py-8 shadow-[0_10px_40px_rgba(0,0,0,0.25)]">
             <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Ready to Start Your Financial Journey?
+              {page.ctaTitle}
             </h2>
             <p className="text-lg mb-8 text-white/85 max-w-2xl mx-auto leading-8">
-              Schedule a free consultation with our experts and
-              begin building a smarter financial future today.
+              {page.ctaDescription}
             </p>
 
             <div className="flex flex-wrap justify-center gap-4">
@@ -294,14 +765,14 @@ export function Services() {
                 to="/signup"
                 className="px-8 py-4 rounded-full bg-[#D8F46B] text-black font-semibold shadow-[0_10px_30px_rgba(184,233,134,0.35)] hover:scale-105 hover:shadow-[0_15px_40px_rgba(184,233,134,0.45)] transition-all"
               >
-                Get Started
+                {page.ctaPrimary}
               </Link>
 
               <Link
                 to="/planner"
                 className="px-8 py-4 rounded-full border border-white/20 bg-white/10 text-white font-semibold hover:bg-white hover:text-[#1A5F3D] transition-all"
               >
-                Try Planner
+                {page.ctaSecondary}
               </Link>
             </div>
           </div>
@@ -324,6 +795,10 @@ function ServiceFlipCard({
   softBg,
   glow,
   index,
+  frontDescription,
+  tapToExplore,
+  viewDetails,
+  learnMoreLabel,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -335,6 +810,10 @@ function ServiceFlipCard({
   softBg: string;
   glow: string;
   index: number;
+  frontDescription: string;
+  tapToExplore: string;
+  viewDetails: string;
+  learnMoreLabel: string;
 }) {
   const [flipped, setFlipped] = useState(false);
 
@@ -380,18 +859,17 @@ function ServiceFlipCard({
                 {title}
               </h3>
               <p className="mt-4 text-gray-600 leading-7 max-w-md">
-                Smart financial support designed around your
-                specific needs.
+                {frontDescription}
               </p>
             </div>
 
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-[#1A5F3D]">
-                Tap to explore
+                {tapToExplore}
               </p>
 
               <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-4 py-2 text-sm font-semibold text-gray-800 backdrop-blur">
-                View Details
+                {viewDetails}
                 <ArrowRight className="w-4 h-4" />
               </div>
             </div>
@@ -453,7 +931,7 @@ function ServiceFlipCard({
               onClick={(e) => e.stopPropagation()}
               className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#eef8f2] px-4 py-3 text-sm font-semibold text-[#1A5F3D] transition-all duration-300 hover:bg-[#1A5F3D] hover:text-white"
             >
-              Learn More
+              {learnMoreLabel}
               <ArrowRight className="w-4 h-4" />
             </a>
           </div>
