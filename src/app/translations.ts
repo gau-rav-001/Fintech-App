@@ -113,6 +113,20 @@ export const translations = {
     "Chat with our financial advisors and get personalized recommendations instantly.",
   whatsappCta: "Start WhatsApp Chat",
 },
+    footer: {
+  description:
+    "Your trusted partner for smart financial planning and investment solutions.",
+  quickLinks: "Quick Links",
+  calculators: "Calculators",
+  contact: "Contact Us",
+  home: "Home",
+  services: "Services",
+  planner: "Financial Planner",
+  webinars: "Webinars",
+  sip: "SIP Calculator",
+  lumpsum: "Lumpsum Calculator",
+  copyright: "© 2026 SmartFinance. All rights reserved.",
+},
   },
   hi: {
     navbar: {
@@ -218,6 +232,20 @@ export const translations = {
   whatsappDescription:
     "हमारे वित्तीय सलाहकारों से चैट करें और तुरंत व्यक्तिगत सुझाव पाएं।",
   whatsappCta: "व्हाट्सऐप चैट शुरू करें",
+},
+    footer: {
+  description:
+    "स्मार्ट वित्तीय योजना और निवेश समाधान के लिए आपका विश्वसनीय साथी।",
+  quickLinks: "त्वरित लिंक",
+  calculators: "कैलकुलेटर्स",
+  contact: "संपर्क करें",
+  home: "होम",
+  services: "सेवाएं",
+  planner: "फाइनेंशियल प्लानर",
+  webinars: "वेबिनार",
+  sip: "एसआईपी कैलकुलेटर",
+  lumpsum: "लंपसम कैलकुलेटर",
+  copyright: "© 2026 SmartFinance. सर्वाधिकार सुरक्षित।",
 },
   },
   mr: {
@@ -325,6 +353,20 @@ export const translations = {
     "आमच्या आर्थिक सल्लागारांशी चॅट करा आणि त्वरित वैयक्तिक शिफारसी मिळवा.",
   whatsappCta: "व्हॉट्सअॅप चॅट सुरू करा",
 },
+    footer: {
+  description:
+    "स्मार्ट आर्थिक नियोजन आणि गुंतवणूक उपायांसाठी तुमचा विश्वासू भागीदार.",
+  quickLinks: "जलद दुवे",
+  calculators: "कॅल्क्युलेटर्स",
+  contact: "संपर्क करा",
+  home: "मुख्यपृष्ठ",
+  services: "सेवा",
+  planner: "आर्थिक नियोजक",
+  webinars: "वेबिनार",
+  sip: "एसआयपी कॅल्क्युलेटर",
+  lumpsum: "लंपसम कॅल्क्युलेटर",
+  copyright: "© 2026 SmartFinance. सर्व हक्क राखीव.",
+},
   },
   kn: {
     navbar: {
@@ -430,6 +472,20 @@ export const translations = {
   whatsappDescription:
     "ನಮ್ಮ ಹಣಕಾಸು ಸಲಹೆಗಾರರೊಂದಿಗೆ ಚಾಟ್ ಮಾಡಿ ಮತ್ತು ತಕ್ಷಣ ವೈಯಕ್ತಿಕ ಶಿಫಾರಸುಗಳನ್ನು ಪಡೆಯಿರಿ.",
   whatsappCta: "ವಾಟ್ಸ್ಆಪ್ ಚಾಟ್ ಪ್ರಾರಂಭಿಸಿ",
+},
+    footer: {
+  description:
+    "ಸ್ಮಾರ್ಟ್ ಹಣಕಾಸು ಯೋಜನೆ ಮತ್ತು ಹೂಡಿಕೆ ಪರಿಹಾರಗಳಿಗೆ ನಿಮ್ಮ ವಿಶ್ವಾಸಾರ್ಹ ಸಹಭಾಗಿ.",
+  quickLinks: "ತ್ವರಿತ ಲಿಂಕ್‌ಗಳು",
+  calculators: "ಕ್ಯಾಲ್ಕುಲೇಟರ್‌ಗಳು",
+  contact: "ಸಂಪರ್ಕಿಸಿ",
+  home: "ಮುಖಪುಟ",
+  services: "ಸೇವೆಗಳು",
+  planner: "ಹಣಕಾಸು ಯೋಜಕ",
+  webinars: "ವೆಬಿನಾರ್‌ಗಳು",
+  sip: "ಎಸ್‌ಐಪಿ ಕ್ಯಾಲ್ಕುಲೇಟರ್",
+  lumpsum: "ಲಂಪ್‌ಸಮ್ ಕ್ಯಾಲ್ಕುಲೇಟರ್",
+  copyright: "© 2026 SmartFinance. ಎಲ್ಲಾ ಹಕ್ಕುಗಳು ಕಾಯ್ದಿರಿಸಲಾಗಿದೆ.",
 },
   },
 } as const;
