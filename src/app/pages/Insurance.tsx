@@ -18,6 +18,9 @@ import {
   Clock,
   Users,
   FileText,
+  Shield,
+  Stethoscope,
+  Activity,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -26,8 +29,7 @@ import { motion, AnimatePresence } from "motion/react";
 const insuranceTypes = [
   {
     id: "health",
-    emoji: "🧑‍⚕️",
-    icon: <Heart className="w-8 h-8" />,
+    icon: <Stethoscope className="w-7 h-7" />,
     title: "Health Insurance",
     subtitle: "Medical coverage for you & your family",
     tagline: "Stay protected against rising medical costs",
@@ -57,8 +59,7 @@ const insuranceTypes = [
   },
   {
     id: "life",
-    emoji: "❤️",
-    icon: <ShieldCheck className="w-8 h-8" />,
+    icon: <Heart className="w-7 h-7" />,
     title: "Life Insurance",
     subtitle: "Term & Whole Life plans",
     tagline: "Secure your family's future no matter what",
@@ -88,8 +89,7 @@ const insuranceTypes = [
   },
   {
     id: "vehicle",
-    emoji: "🚗",
-    icon: <Car className="w-8 h-8" />,
+    icon: <Car className="w-7 h-7" />,
     title: "Vehicle Insurance",
     subtitle: "Car, Bike & Commercial vehicle",
     tagline: "Drive worry-free on every road",
@@ -119,8 +119,7 @@ const insuranceTypes = [
   },
   {
     id: "home",
-    emoji: "🏠",
-    icon: <Home className="w-8 h-8" />,
+    icon: <Home className="w-7 h-7" />,
     title: "Property / Home Insurance",
     subtitle: "Structure & contents protection",
     tagline: "Protect your biggest investment",
@@ -150,8 +149,7 @@ const insuranceTypes = [
   },
   {
     id: "business",
-    emoji: "💼",
-    icon: <Briefcase className="w-8 h-8" />,
+    icon: <Briefcase className="w-7 h-7" />,
     title: "Business Insurance",
     subtitle: "SME, startup & enterprise plans",
     tagline: "Keep your business running, always",
@@ -209,7 +207,7 @@ export function Insurance() {
             transition={{ duration: 0.6 }}
             className="text-center max-w-3xl mx-auto"
           >
-            <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs text-white/85 backdrop-blur mb-4">
+            <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium text-white/85 backdrop-blur mb-5">
               <span className="mr-2 h-2 w-2 rounded-full bg-[#B8E986]" />
               Comprehensive Insurance Solutions
             </div>
@@ -222,13 +220,13 @@ export function Insurance() {
               for Every Need
             </h1>
 
-            <p className="text-lg md:text-xl text-white/85 leading-8 mb-8 max-w-2xl mx-auto">
+            <p className="text-lg md:text-xl text-white/80 leading-8 mb-10 max-w-2xl mx-auto">
               Explore plans that protect what matters most — your health, family,
               vehicle, home, and business.
             </p>
 
             {/* Stats strip */}
-            <div className="flex flex-wrap justify-center gap-6 mt-2">
+            <div className="flex flex-wrap justify-center gap-3">
               {[
                 { icon: <Users className="w-4 h-4" />, label: "50,000+ insured" },
                 { icon: <ShieldCheck className="w-4 h-4" />, label: "5 insurance types" },
@@ -240,7 +238,7 @@ export function Insurance() {
                   className="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/80 backdrop-blur"
                 >
                   {s.icon}
-                  {s.label}
+                  <span>{s.label}</span>
                 </div>
               ))}
             </div>
@@ -252,7 +250,7 @@ export function Insurance() {
       <section className="relative py-16 md:py-24 overflow-hidden bg-[radial-gradient(circle_at_top,rgba(63,175,125,0.08),transparent_30%),linear-gradient(to_bottom,#f8fbf9,#ffffff)]">
         <div className="absolute inset-0 opacity-[0.30] [background-image:linear-gradient(rgba(26,95,61,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(26,95,61,0.04)_1px,transparent_1px)] [background-size:36px_36px]" />
 
-        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-5">
           <div className="text-center mb-12">
             <div className="inline-flex items-center rounded-full border border-[#d7eadf] bg-white/70 backdrop-blur px-4 py-2 text-sm font-medium text-[#1A5F3D] mb-4">
               Tap any card to explore plans
@@ -260,6 +258,9 @@ export function Insurance() {
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-[-0.03em]">
               Choose Your Coverage
             </h2>
+            <p className="text-gray-500 mt-3 text-base max-w-xl mx-auto leading-7">
+              Compare plans, features, and premiums across all insurance categories in one place.
+            </p>
           </div>
 
           {insuranceTypes.map((ins, index) => (
@@ -274,14 +275,14 @@ export function Insurance() {
         </div>
       </section>
 
-      {/* ── Why choose SmartFinance for insurance ── */}
-      <section className="py-16 bg-white">
+      {/* ── Why choose us ── */}
+      <section className="py-16 md:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-3 tracking-[-0.02em]">
               Why Buy Insurance With Us?
             </h2>
-            <p className="text-gray-500 text-lg">
+            <p className="text-gray-500 text-base max-w-xl mx-auto leading-7">
               Unbiased advice. Zero paperwork. Instant issuance.
             </p>
           </div>
@@ -321,11 +322,11 @@ export function Insurance() {
                 className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm hover:shadow-md transition-shadow"
               >
                 <div
-                  className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.color} flex items-center justify-center text-white mb-4 shadow-lg`}
+                  className={`w-11 h-11 rounded-xl bg-gradient-to-br ${f.color} flex items-center justify-center text-white mb-4 shadow-md`}
                 >
                   {f.icon}
                 </div>
-                <h3 className="font-bold text-gray-900 mb-2">{f.title}</h3>
+                <h3 className="font-bold text-gray-900 mb-2 text-base">{f.title}</h3>
                 <p className="text-sm text-gray-500 leading-6">{f.desc}</p>
               </motion.div>
             ))}
@@ -345,16 +346,16 @@ export function Insurance() {
             <h2 className="text-3xl md:text-4xl font-bold mb-4 tracking-[-0.02em]">
               Not sure which plan fits you?
             </h2>
-            <p className="text-lg mb-8 text-white/85 leading-8">
+            <p className="text-lg mb-8 text-white/80 leading-8">
               Talk to our insurance advisor — free consultation, no obligations.
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <Link
                 to="/planner"
-                className="px-8 py-4 rounded-full bg-[#D8F46B] text-black font-semibold shadow-[0_10px_30px_rgba(184,233,134,0.35)] hover:scale-105 transition-all"
+                className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[#D8F46B] text-black font-semibold shadow-[0_10px_30px_rgba(184,233,134,0.35)] hover:scale-105 transition-all"
               >
                 Get Free Advice
-                <ArrowRight className="inline w-4 h-4 ml-2" />
+                <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
                 to="/services"
@@ -390,30 +391,29 @@ function InsuranceCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, delay: index * 0.08 }}
-      className={`rounded-[24px] border bg-white shadow-sm transition-all duration-300 overflow-hidden
+      className={`rounded-2xl border bg-white shadow-sm transition-all duration-300 overflow-hidden
         ${expanded ? "shadow-lg ring-2 ring-[#1A5F3D]/20" : "hover:shadow-md"}
         ${ins.borderColor}`}
     >
-      {/* ── Card Header (always visible) ── */}
+      {/* ── Card Header ── */}
       <button
         type="button"
         onClick={onToggle}
         className="w-full text-left"
       >
-        <div className="flex items-center justify-between p-6 md:p-7">
+        <div className="flex items-center justify-between px-6 py-5 md:px-7 md:py-6">
           {/* Left: icon + text */}
           <div className="flex items-center gap-5">
-            {/* Icon box */}
             <div
-              className={`flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br ${ins.accent} flex items-center justify-center text-white shadow-lg`}
+              className={`flex-shrink-0 w-13 h-13 w-[52px] h-[52px] rounded-xl bg-gradient-to-br ${ins.accent} flex items-center justify-center text-white shadow-md`}
             >
               {ins.icon}
             </div>
 
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-1">
-                <h3 className="text-xl font-bold text-gray-900">
-                  {ins.emoji} {ins.title}
+                <h3 className="text-lg font-bold text-gray-900 leading-tight">
+                  {ins.title}
                 </h3>
                 <span
                   className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${ins.badgeColor}`}
@@ -421,28 +421,28 @@ function InsuranceCard({
                   {ins.highlight}
                 </span>
               </div>
-              <p className="text-sm text-gray-500">{ins.subtitle}</p>
+              <p className="text-sm text-gray-500 leading-5">{ins.subtitle}</p>
             </div>
           </div>
 
           {/* Right: premium + toggle */}
-          <div className="flex items-center gap-6 shrink-0 ml-4">
+          <div className="flex items-center gap-5 shrink-0 ml-4">
             <div className="hidden sm:block text-right">
               <p className="text-xs text-gray-400 mb-0.5">Starting from</p>
-              <p className="text-lg font-bold text-gray-900">
+              <p className="text-base font-bold text-gray-900">
                 {ins.startingPremium}
               </p>
-              <p className="text-xs text-gray-400">{ins.coverAmount} cover</p>
+              <p className="text-xs text-gray-400">{ins.coverAmount}</p>
             </div>
 
             <div
-              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300
+              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 flex-shrink-0
                 ${expanded ? "bg-[#1A5F3D] text-white" : "bg-gray-100 text-gray-500"}`}
             >
               {expanded ? (
-                <ChevronUp className="w-5 h-5" />
+                <ChevronUp className="w-4 h-4" />
               ) : (
-                <ChevronDown className="w-5 h-5" />
+                <ChevronDown className="w-4 h-4" />
               )}
             </div>
           </div>
@@ -461,21 +461,21 @@ function InsuranceCard({
             className="overflow-hidden"
           >
             <div
-              className={`mx-6 md:mx-7 mb-7 rounded-2xl bg-gradient-to-br ${ins.softBg} p-6 border ${ins.borderColor}`}
+              className={`mx-5 md:mx-6 mb-6 rounded-xl bg-gradient-to-br ${ins.softBg} p-5 border ${ins.borderColor}`}
             >
               {/* Tagline */}
               <p className="text-sm font-semibold text-gray-700 mb-5 flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-[#1A5F3D]" />
+                <ShieldCheck className="w-4 h-4 text-[#1A5F3D] flex-shrink-0" />
                 {ins.tagline}
               </p>
 
               <div className="grid md:grid-cols-2 gap-6">
                 {/* Key Features */}
                 <div>
-                  <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wide mb-3">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
                     What's Covered
                   </h4>
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     {ins.keyFeatures.map((feat, i) => (
                       <div key={i} className="flex items-start gap-2.5">
                         <CheckCircle className="w-4 h-4 text-[#1A5F3D] mt-0.5 shrink-0" />
@@ -489,20 +489,20 @@ function InsuranceCard({
 
                 {/* Plans */}
                 <div>
-                  <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wide mb-3">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
                     Available Plans
                   </h4>
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     {ins.plans.map((plan, i) => (
                       <div
                         key={i}
                         className="flex items-center justify-between rounded-xl bg-white/80 border border-white px-4 py-3 shadow-sm"
                       >
                         <div>
-                          <p className="text-sm font-semibold text-gray-800">
+                          <p className="text-sm font-semibold text-gray-800 leading-tight">
                             {plan.name}
                           </p>
-                          <p className="text-xs text-gray-400">
+                          <p className="text-xs text-gray-400 mt-0.5">
                             Cover: {plan.cover}
                           </p>
                         </div>
@@ -519,7 +519,7 @@ function InsuranceCard({
                       {[1, 2, 3, 4, 5].map((star) => (
                         <Star
                           key={star}
-                          className={`w-4 h-4 ${
+                          className={`w-3.5 h-3.5 ${
                             star <= Math.floor(ins.rating)
                               ? "text-amber-400 fill-amber-400"
                               : "text-gray-200 fill-gray-200"
@@ -540,14 +540,14 @@ function InsuranceCard({
                     <Link
                       to="/signup"
                       onClick={(e) => e.stopPropagation()}
-                      className={`flex-1 text-center py-3 rounded-xl bg-gradient-to-br ${ins.accent} text-white text-sm font-semibold shadow-md hover:opacity-90 transition-all`}
+                      className={`flex-1 text-center py-2.5 rounded-xl bg-gradient-to-br ${ins.accent} text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-all`}
                     >
                       Get Quote
                     </Link>
                     <Link
                       to="/planner"
                       onClick={(e) => e.stopPropagation()}
-                      className="flex-1 text-center py-3 rounded-xl border-2 border-[#1A5F3D] text-[#1A5F3D] text-sm font-semibold hover:bg-[#1A5F3D] hover:text-white transition-all"
+                      className="flex-1 text-center py-2.5 rounded-xl border-2 border-[#1A5F3D] text-[#1A5F3D] text-sm font-semibold hover:bg-[#1A5F3D] hover:text-white transition-all"
                     >
                       Talk to Advisor
                     </Link>
