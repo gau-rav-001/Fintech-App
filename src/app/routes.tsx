@@ -14,6 +14,7 @@ import { LumpsumCalculator } from "./pages/LumpsumCalculator";
 import { FinancialPlanner } from "./pages/FinancialPlanner";
 import { Webinars } from "./pages/Webinars";
 import { Admin } from "./pages/Admin";
+import { Insurance } from "./pages/Insurance";
 import { NotFound } from "./pages/NotFound";
 
 function ScrollToTop() {
@@ -78,6 +79,10 @@ export const router = createBrowserRouter([
       {
         path: "/admin",
         Component: Admin,
+      },
+      {
+        path: "/insurance",
+        Component: Insurance,
       },
       {
         path: "*",

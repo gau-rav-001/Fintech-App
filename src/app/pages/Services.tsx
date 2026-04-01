@@ -1,4 +1,3 @@
-import { useLanguage } from "../LanguageContext";
 import { useState } from "react";
 import { Link } from "react-router";
 import { Navbar } from "../components/Navbar";
@@ -16,8 +15,10 @@ import {
   HeadphonesIcon,
   ArrowRight,
   RotateCcw,
+  ShieldCheck,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { useLanguage } from "../LanguageContext";
 
 const servicesPageContent = {
   en: {
@@ -149,6 +150,18 @@ const servicesPageContent = {
           "Legal documentation",
         ],
         tag: "Legacy Protection",
+      },
+      {
+        title: "Insurance",
+        description:
+          "Complete insurance solutions — health, life, vehicle, home, and business — to protect everything you value.",
+        features: [
+          "Health & life insurance plans",
+          "Vehicle & property coverage",
+          "Business insurance packages",
+          "Instant policy issuance",
+        ],
+        tag: "Full Protection",
       },
     ],
   },
@@ -283,6 +296,18 @@ const servicesPageContent = {
         ],
         tag: "विरासत सुरक्षा",
       },
+      {
+        title: "बीमा",
+        description:
+          "स्वास्थ्य, जीवन, वाहन, संपत्ति और व्यवसाय के लिए संपूर्ण बीमा समाधान।",
+        features: [
+          "स्वास्थ्य और जीवन बीमा",
+          "वाहन और संपत्ति बीमा",
+          "व्यवसाय बीमा पैकेज",
+          "त्वरित पॉलिसी जारी",
+        ],
+        tag: "पूर्ण सुरक्षा",
+      },
     ],
   },
 
@@ -415,6 +440,18 @@ const servicesPageContent = {
           "कायदेशीर कागदपत्रे",
         ],
         tag: "वारसा संरक्षण",
+      },
+      {
+        title: "विमा",
+        description:
+          "आरोग्य, जीवन, वाहन, मालमत्ता आणि व्यवसायासाठी संपूर्ण विमा उपाय.",
+        features: [
+          "आरोग्य व जीवन विमा",
+          "वाहन व मालमत्ता विमा",
+          "व्यवसाय विमा पॅकेज",
+          "तत्काळ पॉलिसी",
+        ],
+        tag: "संपूर्ण संरक्षण",
       },
     ],
   },
@@ -549,6 +586,18 @@ const servicesPageContent = {
         ],
         tag: "ಪಾರಂಪರಿಕ ರಕ್ಷಣೆ",
       },
+      {
+        title: "ವಿಮೆ",
+        description:
+          "ಆರೋಗ್ಯ, ಜೀವ, ವಾಹನ, ಆಸ್ತಿ ಮತ್ತು ವ್ಯಾಪಾರಕ್ಕಾಗಿ ಸಂಪೂರ್ಣ ವಿಮಾ ಪರಿಹಾರಗಳು.",
+        features: [
+          "ಆರೋಗ್ಯ ಮತ್ತು ಜೀವ ವಿಮೆ",
+          "ವಾಹನ ಮತ್ತು ಆಸ್ತಿ ವಿಮೆ",
+          "ವ್ಯಾಪಾರ ವಿಮೆ ಪ್ಯಾಕೇಜ್",
+          "ತ್ವರಿತ ಪಾಲಿಸಿ ನೀಡಿಕೆ",
+        ],
+        tag: "ಸಂಪೂರ್ಣ ರಕ್ಷಣೆ",
+      },
     ],
   },
 } as const;
@@ -617,6 +666,14 @@ const servicesMeta = [
     accent: "from-rose-700 to-pink-500",
     softBg: "from-rose-50/80 to-pink-100/40",
     glow: "bg-rose-300/25",
+  },
+  {
+    icon: <ShieldCheck className="w-8 h-8" />,
+    learnMoreUrl: "/insurance",
+    accent: "from-sky-700 to-blue-500",
+    softBg: "from-sky-50/80 to-blue-100/40",
+    glow: "bg-sky-300/25",
+    isInternal: true,
   },
 ];
 
@@ -798,6 +855,7 @@ function ServiceFlipCard({
   tapToExplore,
   viewDetails,
   learnMoreLabel,
+  isInternal,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -813,6 +871,7 @@ function ServiceFlipCard({
   tapToExplore: string;
   viewDetails: string;
   learnMoreLabel: string;
+  isInternal?: boolean;
 }) {
   const [flipped, setFlipped] = useState(false);
 
@@ -923,16 +982,27 @@ function ServiceFlipCard({
               ))}
             </div>
 
-            <a
-              href={learnMoreUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#eef8f2] px-4 py-3 text-sm font-semibold text-[#1A5F3D] transition-all duration-300 hover:bg-[#1A5F3D] hover:text-white"
-            >
-              {learnMoreLabel}
-              <ArrowRight className="w-4 h-4" />
-            </a>
+            {isInternal ? (
+              <Link
+                to={learnMoreUrl}
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#eef8f2] px-4 py-3 text-sm font-semibold text-[#1A5F3D] transition-all duration-300 hover:bg-[#1A5F3D] hover:text-white"
+              >
+                {learnMoreLabel}
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            ) : (
+              <a
+                href={learnMoreUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#eef8f2] px-4 py-3 text-sm font-semibold text-[#1A5F3D] transition-all duration-300 hover:bg-[#1A5F3D] hover:text-white"
+              >
+                {learnMoreLabel}
+                <ArrowRight className="w-4 h-4" />
+              </a>
+            )}
           </div>
         </div>
       </div>
