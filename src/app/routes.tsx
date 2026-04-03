@@ -1,8 +1,4 @@
-import {
-  createBrowserRouter,
-  Outlet,
-  useLocation,
-} from "react-router";
+import { createBrowserRouter, Outlet, useLocation } from "react-router";
 import { useEffect } from "react";
 import { Home }              from "./pages/Home";
 import { Login }             from "./pages/Login";
@@ -13,97 +9,57 @@ import { SIPCalculator }     from "./pages/SIPCalculator";
 import { LumpsumCalculator } from "./pages/LumpsumCalculator";
 import { FinancialPlanner }  from "./pages/FinancialPlanner";
 import { Webinars }          from "./pages/Webinars";
-import { Admin }             from "./pages/Admin";
 import { Insurance }         from "./pages/Insurance";
 import { NotFound }          from "./pages/NotFound";
-import { ProtectedRoute, GuestOnlyRoute } from "./auth/ProtectedRoute";
+import { AdminLogin }        from "./pages/AdminLogin";
+import { AdminPortal }       from "./pages/AdminPortal";
+import {
+  ProtectedRoute, AdminRoute,
+  GuestOnlyRoute, AdminGuestRoute,
+} from "./auth/ProtectedRoute";
+
+// Import mockData to trigger auto-seed on app load
+import "./data/mockData";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
   return null;
 }
-
 function Layout() {
-  return (
-    <>
-      <ScrollToTop />
-      <Outlet />
-    </>
-  );
+  return (<><ScrollToTop /><Outlet /></>);
 }
 
 export const router = createBrowserRouter([
   {
     element: <Layout />,
     children: [
-      // ── Public routes ──────────────────────────────────────────────────────
-      { path: "/",        Component: Home },
-      { path: "/services", Component: Services },
-      { path: "/webinars", Component: Webinars },
+      // ── Public ────────────────────────────────────────────────────────────
+      { path: "/",          Component: Home },
+      { path: "/services",  Component: Services },
+      { path: "/webinars",  Component: Webinars },
       { path: "/insurance", Component: Insurance },
 
-      // ── Auth routes (redirect to dashboard if already logged in) ───────────
-      {
-        path: "/login",
-        element: (
-          <GuestOnlyRoute>
-            <Login />
-          </GuestOnlyRoute>
-        ),
-      },
-      {
-        path: "/signup",
-        element: (
-          <GuestOnlyRoute>
-            <Signup />
-          </GuestOnlyRoute>
-        ),
-      },
+      // ── User auth (guest only) ─────────────────────────────────────────────
+      { path: "/login",  element: <GuestOnlyRoute><Login /></GuestOnlyRoute> },
+      { path: "/signup", element: <GuestOnlyRoute><Signup /></GuestOnlyRoute> },
 
-      // ── Protected routes (require authentication) ──────────────────────────
-      {
-        path: "/dashboard",
-        element: (
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/calculator/sip",
-        element: (
-          <ProtectedRoute>
-            <SIPCalculator />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/calculator/lumpsum",
-        element: (
-          <ProtectedRoute>
-            <LumpsumCalculator />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/planner",
-        element: (
-          <ProtectedRoute>
-            <FinancialPlanner />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/admin",
-        element: (
-          <ProtectedRoute>
-            <Admin />
-          </ProtectedRoute>
-        ),
-      },
+      // ── Admin auth (guest only) ────────────────────────────────────────────
+      { path: "/admin/login",  element: <AdminGuestRoute><AdminLogin /></AdminGuestRoute> },
 
-      // ── 404 ───────────────────────────────────────────────────────────────
+      // ── Admin portal (admin role required) ────────────────────────────────
+      { path: "/admin/portal", element: <AdminRoute><AdminPortal /></AdminRoute> },
+
+      // ── Legacy /admin redirect to portal ──────────────────────────────────
+      { path: "/admin", element: <AdminRoute><AdminPortal /></AdminRoute> },
+
+      // ── Protected user routes ──────────────────────────────────────────────
+      { path: "/dashboard",          element: <ProtectedRoute><Dashboard /></ProtectedRoute> },
+      { path: "/calculator/sip",     element: <ProtectedRoute><SIPCalculator /></ProtectedRoute> },
+      { path: "/calculator/lumpsum", element: <ProtectedRoute><LumpsumCalculator /></ProtectedRoute> },
+      { path: "/planner",            element: <ProtectedRoute><FinancialPlanner /></ProtectedRoute> },
+
+      // ── 404 ──────────────────────────────────────────────────────────────
       { path: "*", Component: NotFound },
     ],
   },
