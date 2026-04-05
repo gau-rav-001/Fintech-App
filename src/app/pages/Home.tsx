@@ -239,6 +239,13 @@ export function Home() {
               link="/services"
               cta={home.learnMore}
             />
+            <ServiceCard
+  icon={<Shield className="w-8 h-8" />}
+  title={home.serviceInsurancePlanning}
+  description={home.serviceInsurancePlanningDesc}
+  link="/services"
+  cta={home.learnMore}
+/>
           </div>
         </div>
       </section>
