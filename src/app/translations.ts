@@ -65,7 +65,10 @@ export const translations = {
   serviceExpertGuidance: "Expert Guidance",
   serviceExpertGuidanceDesc:
     "Personalized consultation from certified financial advisors and experts.",
-  learnMore: "Learn More",
+  
+  serviceInsurancePlanning: "Insurance Planning",
+serviceInsurancePlanningDesc:
+  "Protect your financial future with smart insurance strategies including life, health, and asset coverage tailored to your needs.",
 
   calculatorsBadge: "Smart Investment Tools",
   calculatorsTitle: "Financial Calculators",
@@ -185,7 +188,10 @@ export const translations = {
   serviceExpertGuidance: "विशेषज्ञ मार्गदर्शन",
   serviceExpertGuidanceDesc:
     "प्रमाणित वित्तीय सलाहकारों से व्यक्तिगत परामर्श।",
-  learnMore: "और जानें",
+
+  serviceInsurancePlanning: "बीमा योजना",
+serviceInsurancePlanningDesc:
+  "जीवन, स्वास्थ्य और संपत्ति बीमा के साथ अपने वित्तीय भविष्य को सुरक्षित करें।",
 
   calculatorsBadge: "स्मार्ट निवेश टूल्स",
   calculatorsTitle: "वित्तीय कैलकुलेटर",
@@ -305,7 +311,9 @@ export const translations = {
   serviceExpertGuidance: "तज्ज्ञ मार्गदर्शन",
   serviceExpertGuidanceDesc:
     "प्रमाणित आर्थिक सल्लागारांकडून वैयक्तिक सल्ला.",
-  learnMore: "अधिक जाणून घ्या",
+  serviceInsurancePlanning: "विमा नियोजन",
+serviceInsurancePlanningDesc:
+  "जीवन, आरोग्य आणि मालमत्ता विम्यासह तुमचे आर्थिक भविष्य सुरक्षित करा.",
 
   calculatorsBadge: "स्मार्ट गुंतवणूक साधने",
   calculatorsTitle: "आर्थिक कॅल्क्युलेटर्स",
@@ -425,7 +433,9 @@ export const translations = {
   serviceExpertGuidance: "ತಜ್ಞ ಮಾರ್ಗದರ್ಶನ",
   serviceExpertGuidanceDesc:
     "ಪ್ರಮಾಣಿತ ಹಣಕಾಸು ಸಲಹೆಗಾರರಿಂದ ವೈಯಕ್ತಿಕ ಸಲಹೆ.",
-  learnMore: "ಇನ್ನಷ್ಟು ತಿಳಿಯಿರಿ",
+  serviceInsurancePlanning: "ವಿಮೆ ಯೋಜನೆ",
+serviceInsurancePlanningDesc:
+  "ಜೀವನ, ಆರೋಗ್ಯ ಮತ್ತು ಆಸ್ತಿ ವಿಮೆಯ ಮೂಲಕ ನಿಮ್ಮ ಆರ್ಥಿಕ ಭವಿಷ್ಯವನ್ನು ಸುರಕ್ಷಿತಗೊಳಿಸಿ.",
 
   calculatorsBadge: "ಸ್ಮಾರ್ಟ್ ಹೂಡಿಕೆ ಸಾಧನಗಳು",
   calculatorsTitle: "ಹಣಕಾಸು ಕ್ಯಾಲ್ಕುಲೇಟರ್‌ಗಳು",
