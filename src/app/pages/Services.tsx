@@ -735,17 +735,27 @@ export function Services() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-7">
-            {mergedServices.map((service, index) => (
-              <ServiceFlipCard
-                key={index}
-                {...service}
-                index={index}
-                frontDescription={page.frontDescription}
-                tapToExplore={page.tapToExplore}
-                viewDetails={page.viewDetails}
-                learnMoreLabel={page.learnMore}
-              />
-            ))}
+            {mergedServices.map((service, index) => {
+  const isLast = index === mergedServices.length - 1;
+
+  return (
+    <div
+      key={index}
+      className={isLast ? "md:col-span-2 flex justify-center" : ""}
+    >
+      <div className={isLast ? "w-full md:w-[50%]" : "w-full"}>
+        <ServiceFlipCard
+          {...service}
+          index={index}
+          frontDescription={page.frontDescription}
+          tapToExplore={page.tapToExplore}
+          viewDetails={page.viewDetails}
+          learnMoreLabel={page.learnMore}
+        />
+      </div>
+    </div>
+  );
+})}
           </div>
         </div>
       </section>
