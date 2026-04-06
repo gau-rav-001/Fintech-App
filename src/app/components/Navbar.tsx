@@ -1,21 +1,33 @@
-import { Link, useLocation } from "react-router";
-import { Menu, X, ChevronDown, Globe } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router";
+import { Menu, X, ChevronDown, Globe, LayoutDashboard, Settings, LogOut } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useLanguage } from "../LanguageContext";
+import { useAuth } from "../auth/AuthContext";
+import { getUserProfile } from "../data/userProfile";
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [calculatorsOpen, setCalculatorsOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
   const { language, setLanguage, t, languageOptions } =
     useLanguage();
+  const { user, isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
 
   const location = useLocation();
   const calculatorsRef = useRef<HTMLDivElement>(null);
   const languageRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Get profile avatar
+  const up = user ? getUserProfile(user.id) : null;
+  const avatarUrl = up?.personal.avatarDataUrl || user?.avatar;
+  const displayName = up?.personal.fullName || user?.name || "Account";
+  const initials = displayName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
   const selectedLanguageLabel =
     languageOptions.find((item) => item.code === language)
@@ -25,6 +37,13 @@ export function Navbar() {
   const calculatorsActive =
     isActive("/calculator/sip") ||
     isActive("/calculator/lumpsum");
+
+  function handleLogout() {
+    logout();
+    navigate("/login", { replace: true });
+    setMobileMenuOpen(false);
+    setUserMenuOpen(false);
+  }
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -46,6 +65,13 @@ export function Navbar() {
         !languageRef.current.contains(event.target as Node)
       ) {
         setLanguageOpen(false);
+      }
+
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(event.target as Node)
+      ) {
+        setUserMenuOpen(false);
       }
     }
 
@@ -244,19 +270,70 @@ export function Navbar() {
                 </AnimatePresence>
               </div>
 
-              <Link
-                to="/login"
-                className="px-4 py-2 rounded-full text-sm text-white/75 hover:text-white hover:bg-white/8 transition-all"
-              >
-                {t.navbar.login}
-              </Link>
+              {isAuthenticated ? (
+                /* ── Logged-in: avatar dropdown ── */
+                <div className="relative" ref={userMenuRef}>
+                  <button
+                    onClick={() => setUserMenuOpen(v => !v)}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-full hover:bg-white/10 transition-all"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center text-white text-xs font-bold overflow-hidden border-2 border-white/20">
+                      {avatarUrl
+                        ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                        : initials}
+                    </div>
+                    <span className="text-sm text-white/80 max-w-[80px] truncate hidden lg:block">{displayName.split(" ")[0]}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-white/50 transition-transform ${userMenuOpen ? "rotate-180" : ""}`} />
+                  </button>
 
-              <Link
-                to="/signup"
-                className="px-5 py-2 rounded-full bg-[#D8F46B] text-black text-sm font-semibold shadow-[0_8px_25px_rgba(184,233,134,0.35)] hover:scale-[1.03] transition-all"
-              >
-                {t.navbar.getStarted}
-              </Link>
+                  <AnimatePresence>
+                    {userMenuOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50"
+                      >
+                        <div className="px-4 py-3 border-b border-gray-100">
+                          <p className="text-xs font-semibold text-gray-800 truncate">{displayName}</p>
+                          <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+                        </div>
+                        <div className="py-1">
+                          <Link to="/dashboard" onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                            <LayoutDashboard className="w-4 h-4 text-[#1A5F3D]" /> Dashboard
+                          </Link>
+                          <Link to="/settings" onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                            <Settings className="w-4 h-4 text-[#1A5F3D]" /> Settings
+                          </Link>
+                          <button onClick={handleLogout}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                            <LogOut className="w-4 h-4" /> Logout
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                /* ── Guest: login + signup ── */
+                <>
+                  <Link
+                    to="/login"
+                    className="px-4 py-2 rounded-full text-sm text-white/75 hover:text-white hover:bg-white/8 transition-all"
+                  >
+                    {t.navbar.login}
+                  </Link>
+                  <Link
+                    to="/signup"
+                    className="px-5 py-2 rounded-full bg-[#D8F46B] text-black text-sm font-semibold shadow-[0_8px_25px_rgba(184,233,134,0.35)] hover:scale-[1.03] transition-all"
+                  >
+                    {t.navbar.getStarted}
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </nav>
@@ -378,21 +455,53 @@ export function Navbar() {
                 </div>
 
                 <div className="pt-4 space-y-2">
-                  <Link
-                    to="/login"
-                    className="block w-full px-4 py-3 text-center border border-white/15 text-white rounded-xl bg-white/5"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    {t.navbar.login}
-                  </Link>
-
-                  <Link
-                    to="/signup"
-                    className="block w-full px-4 py-3 text-center bg-[#D8F46B] text-black rounded-xl font-semibold"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    {t.navbar.getStarted}
-                  </Link>
+                  {isAuthenticated ? (
+                    <>
+                      {/* Logged-in user info */}
+                      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/8 border border-white/10 mb-2">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center text-white text-xs font-bold overflow-hidden flex-shrink-0">
+                          {avatarUrl
+                            ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                            : initials}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">{displayName}</p>
+                          <p className="text-xs text-white/50 truncate">{user?.email}</p>
+                        </div>
+                      </div>
+                      <Link to="/dashboard"
+                        className="flex items-center gap-3 w-full px-4 py-3 border border-white/15 text-white rounded-xl bg-white/5"
+                        onClick={() => setMobileMenuOpen(false)}>
+                        <LayoutDashboard className="w-4 h-4 text-[#B8E986]" /> Dashboard
+                      </Link>
+                      <Link to="/settings"
+                        className="flex items-center gap-3 w-full px-4 py-3 border border-white/15 text-white rounded-xl bg-white/5"
+                        onClick={() => setMobileMenuOpen(false)}>
+                        <Settings className="w-4 h-4 text-[#B8E986]" /> Settings
+                      </Link>
+                      <button onClick={handleLogout}
+                        className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-red-500/15 border border-red-400/30 text-red-400 rounded-xl font-semibold">
+                        <LogOut className="w-4 h-4" /> Logout
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        to="/login"
+                        className="block w-full px-4 py-3 text-center border border-white/15 text-white rounded-xl bg-white/5"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        {t.navbar.login}
+                      </Link>
+                      <Link
+                        to="/signup"
+                        className="block w-full px-4 py-3 text-center bg-[#D8F46B] text-black rounded-xl font-semibold"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        {t.navbar.getStarted}
+                      </Link>
+                    </>
+                  )}
                 </div>
               </div>
             </motion.div>

@@ -13,8 +13,10 @@ import { Insurance }         from "./pages/Insurance";
 import { NotFound }          from "./pages/NotFound";
 import { AdminLogin }        from "./pages/AdminLogin";
 import { AdminPortal }       from "./pages/AdminPortal";
+import { Onboarding }        from "./pages/Onboarding";
+import { Settings }          from "./pages/Settings";
 import {
-  ProtectedRoute, AdminRoute,
+  ProtectedRoute, OnboardingRoute, AdminRoute,
   GuestOnlyRoute, AdminGuestRoute,
 } from "./auth/ProtectedRoute";
 
@@ -53,11 +55,15 @@ export const router = createBrowserRouter([
       // ── Legacy /admin redirect to portal ──────────────────────────────────
       { path: "/admin", element: <AdminRoute><AdminPortal /></AdminRoute> },
 
-      // ── Protected user routes ──────────────────────────────────────────────
+      // ── Onboarding (logged in, not yet onboarded) ──────────────────────────
+      { path: "/onboarding", element: <OnboardingRoute><Onboarding /></OnboardingRoute> },
+
+      // ── Protected user routes (checks onboarding first) ───────────────────
       { path: "/dashboard",          element: <ProtectedRoute><Dashboard /></ProtectedRoute> },
       { path: "/calculator/sip",     element: <ProtectedRoute><SIPCalculator /></ProtectedRoute> },
       { path: "/calculator/lumpsum", element: <ProtectedRoute><LumpsumCalculator /></ProtectedRoute> },
       { path: "/planner",            element: <ProtectedRoute><FinancialPlanner /></ProtectedRoute> },
+      { path: "/settings",           element: <ProtectedRoute><Settings /></ProtectedRoute> },
 
       // ── 404 ──────────────────────────────────────────────────────────────
       { path: "*", Component: NotFound },

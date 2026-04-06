@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
+import { useAuth } from "../auth/AuthContext";
+import { getUserProfile, saveUserProfile } from "../data/userProfile";
+import { syncProfileToFinancialData } from "../data/syncProfile";
 import {
   Heart,
   Car,
@@ -183,9 +186,26 @@ const insuranceTypes = [
 
 export function Insurance() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [quoteToast, setQuoteToast] = useState<string | null>(null);
+  const { user, isAuthenticated } = useAuth();
 
   const toggle = (id: string) =>
     setExpandedId((prev) => (prev === id ? null : id));
+
+  function handleGetQuote(insuranceType: string) {
+    if (!user) return;
+    const up = getUserProfile(user.id);
+    if (!up) return;
+    // Mark the insurance type as noted in profile
+    const updated = {
+      ...up,
+      updatedAt: new Date().toISOString(),
+    };
+    saveUserProfile(updated);
+    syncProfileToFinancialData(updated);
+    setQuoteToast(`Quote request for ${insuranceType} saved! An advisor will contact you.`);
+    setTimeout(() => setQuoteToast(null), 4000);
+  }
 
   return (
     <div className="min-h-screen bg-[#F7F9FB]">
@@ -369,6 +389,14 @@ export function Insurance() {
       </section>
 
       <Footer />
+
+      {/* Toast */}
+      {quoteToast && (
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl bg-[#1A5F3D] text-white text-sm font-semibold max-w-sm">
+          <CheckCircle className="w-4 h-4 shrink-0" />
+          {quoteToast}
+        </div>
+      )}
     </div>
   );
 }
@@ -537,13 +565,22 @@ function InsuranceCard({
 
                   {/* CTA */}
                   <div className="mt-4 flex gap-3">
-                    <Link
-                      to="/signup"
-                      onClick={(e) => e.stopPropagation()}
-                      className={`flex-1 text-center py-2.5 rounded-xl bg-gradient-to-br ${ins.accent} text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-all`}
-                    >
-                      Get Quote
-                    </Link>
+                    {isAuthenticated ? (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleGetQuote(ins.title); }}
+                        className={`flex-1 text-center py-2.5 rounded-xl bg-gradient-to-br ${ins.accent} text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-all`}
+                      >
+                        Get Quote
+                      </button>
+                    ) : (
+                      <Link
+                        to="/login"
+                        onClick={(e) => e.stopPropagation()}
+                        className={`flex-1 text-center py-2.5 rounded-xl bg-gradient-to-br ${ins.accent} text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-all`}
+                      >
+                        Get Quote
+                      </Link>
+                    )}
                     <Link
                       to="/planner"
                       onClick={(e) => e.stopPropagation()}

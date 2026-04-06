@@ -20,6 +20,9 @@ export const translations = {
       login: "Login",
       getStarted: "Get Started",
       language: "Language",
+      dashboard: "Dashboard",
+      settings: "Settings",
+      logout: "Logout",
     },
     home: {
   heroBadge: "Smart Wealth Planning Platform",
@@ -140,6 +143,9 @@ export const translations = {
       login: "लॉगिन",
       getStarted: "शुरू करें",
       language: "भाषा",
+      dashboard: "डैशबोर्ड",
+      settings: "सेटिंग्स",
+      logout: "लॉगआउट",
     },
     home: {
   heroBadge: "स्मार्ट वेल्थ प्लानिंग प्लेटफॉर्म",
@@ -260,6 +266,9 @@ export const translations = {
       login: "लॉगिन",
       getStarted: "सुरू करा",
       language: "भाषा",
+      dashboard: "डॅशबोर्ड",
+      settings: "सेटिंग्ज",
+      logout: "लॉगआउट",
     },
     home: {
   heroBadge: "स्मार्ट वेल्थ प्लॅनिंग प्लॅटफॉर्म",
@@ -380,6 +389,9 @@ export const translations = {
       login: "ಲಾಗಿನ್",
       getStarted: "ಪ್ರಾರಂಭಿಸಿ",
       language: "ಭಾಷೆ",
+      dashboard: "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್",
+      settings: "ಸೆಟ್ಟಿಂಗ್‌ಗಳು",
+      logout: "ಲಾಗ್‌ಔಟ್",
     },
     home: {
   heroBadge: "ಸ್ಮಾರ್ಟ್ ವೆಲ್ತ್ ಪ್ಲಾನಿಂಗ್ ವೇದಿಕೆ",

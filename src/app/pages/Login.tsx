@@ -16,6 +16,7 @@ import {
   validateOTP,
   type AuthSession,
 } from "../auth/authService";
+import { hasCompletedOnboarding } from "../data/userProfile";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -42,6 +43,7 @@ export function Login() {
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState<string | null>(null);
   const [success,   setSuccess]   = useState<string | null>(null);
+  const [forgotMode, setForgotMode] = useState(false);
   const [otpError,  setOtpError]  = useState<string | null>(null);
 
   // ── Field-level validation errors ──
@@ -79,7 +81,11 @@ export function Login() {
   function handleSessionReady(session: AuthSession) {
     setSession(session, remember);
     setPhase("success");
-    setTimeout(() => navigate(from, { replace: true }), 1000);
+    // If user has never onboarded, send them to onboarding; else go to intended page
+    const destination = hasCompletedOnboarding(session.user.id)
+      ? (from === "/login" ? "/dashboard" : from)
+      : "/onboarding";
+    setTimeout(() => navigate(destination, { replace: true }), 1000);
   }
 
   // ─── Step 1: Credential submit ────────────────────────────────────────────
@@ -365,10 +371,28 @@ export function Login() {
                       />
                       <span className="text-sm text-gray-600">Remember me</span>
                     </label>
-                    <a href="#" className="text-sm text-[#1A5F3D] hover:underline">
+                    <button
+                      type="button"
+                      onClick={() => setForgotMode(v => !v)}
+                      className="text-sm text-[#1A5F3D] hover:underline"
+                    >
                       Forgot password?
-                    </a>
+                    </button>
                   </div>
+
+                  {forgotMode && (
+                    <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-800">
+                      <p className="font-semibold mb-1">Reset your password</p>
+                      <p>Please contact support at <span className="font-mono font-semibold">support@smartfinance.in</span> with your registered email and we'll send you a reset link within 24 hours.</p>
+                      <button
+                        type="button"
+                        onClick={() => setForgotMode(false)}
+                        className="mt-2 text-xs text-blue-600 hover:underline"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  )}
 
                   {/* Submit */}
                   <button

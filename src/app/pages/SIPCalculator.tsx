@@ -1,6 +1,9 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
+import { useAuth } from "../auth/AuthContext";
+import { getUserProfile, saveUserProfile } from "../data/userProfile";
+import { syncProfileToFinancialData } from "../data/syncProfile";
 import {
   AreaChart,
   Area,
@@ -25,10 +28,50 @@ import {
 } from "lucide-react";
 
 export function SIPCalculator() {
-  const [monthlyInvestment, setMonthlyInvestment] =
-    useState(10000);
-  const [expectedReturn, setExpectedReturn] = useState(12);
-  const [timePeriod, setTimePeriod] = useState(10);
+  const { user } = useAuth();
+
+  // Pre-fill from saved profile
+  const savedUp = user ? getUserProfile(user.id) : null;
+  const defaultMonthly = savedUp?.income.monthlyIncome
+    ? Math.round(savedUp.income.monthlyIncome * 0.15)
+    : 10000;
+  const defaultReturn = savedUp?.riskProfile.tolerance === "high" ? 14
+    : savedUp?.riskProfile.tolerance === "low" ? 8 : 12;
+  const defaultYears = savedUp?.riskProfile.timeHorizonYears
+    ? Math.min(40, savedUp.riskProfile.timeHorizonYears)
+    : 10;
+
+  const [monthlyInvestment, setMonthlyInvestment] = useState(defaultMonthly);
+  const [expectedReturn, setExpectedReturn] = useState(defaultReturn);
+  const [timePeriod, setTimePeriod] = useState(defaultYears);
+  const [savedToast, setSavedToast] = useState<string | null>(null);
+
+  function handleSavePlan() {
+    if (!user) { setSavedToast("Please log in to save your plan."); setTimeout(() => setSavedToast(null), 3000); return; }
+    const up = getUserProfile(user.id);
+    if (!up) return;
+    const id = `sip_${Date.now()}`;
+    const updated = {
+      ...up,
+      investments: [
+        ...up.investments.filter(i => !i.id.startsWith("sip_")),
+        {
+          id,
+          type: "mutual_fund" as const,
+          name: `SIP Plan — ₹${monthlyInvestment.toLocaleString("en-IN")}/mo`,
+          investedAmount: monthlyInvestment * timePeriod * 12,
+          currentValue:   result.futureValue,
+          durationMonths: timePeriod * 12,
+          expectedReturn,
+        },
+      ],
+      updatedAt: new Date().toISOString(),
+    };
+    saveUserProfile(updated);
+    syncProfileToFinancialData(updated);
+    setSavedToast("SIP plan saved to your profile!");
+    setTimeout(() => setSavedToast(null), 3000);
+  }
 
   const calculateSIP = () => {
     const monthlyRate = expectedReturn / 12 / 100;
@@ -347,13 +390,23 @@ export function SIPCalculator() {
                 </div>
 
                 <div className="mt-6 grid grid-cols-2 gap-3">
-                  <button className="rounded-2xl bg-[#1A5F3D] text-white font-semibold py-3 px-4 hover:bg-[#154d32] transition">
+                  <button
+                    onClick={handleSavePlan}
+                    className="rounded-2xl bg-[#1A5F3D] text-white font-semibold py-3 px-4 hover:bg-[#154d32] transition">
                     Invest Now
                   </button>
-                  <button className="rounded-2xl border border-gray-200 bg-gray-50 text-gray-700 font-semibold py-3 px-4 hover:bg-gray-100 transition">
+                  <button
+                    onClick={handleSavePlan}
+                    className="rounded-2xl border border-gray-200 bg-gray-50 text-gray-700 font-semibold py-3 px-4 hover:bg-gray-100 transition">
                     Save Plan
                   </button>
                 </div>
+
+                {savedToast && (
+                  <div className="mt-3 p-3 rounded-xl bg-green-50 border border-green-200 text-sm text-green-800 font-medium text-center">
+                    ✓ {savedToast}
+                  </div>
+                )}
               </div>
             </div>
 

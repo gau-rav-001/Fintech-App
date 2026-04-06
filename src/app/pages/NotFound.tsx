@@ -1,9 +1,13 @@
 import { Link } from "react-router";
 import { Home, ArrowLeft } from "lucide-react";
+import { Navbar } from "../components/Navbar";
+import { Footer } from "../components/Footer";
 
 export function NotFound() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F7F9FB] via-white to-[#F7F9FB] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-[#F7F9FB] via-white to-[#F7F9FB]">
+      <Navbar />
+      <div className="flex items-center justify-center p-4 pt-24">
       <div className="text-center max-w-2xl">
         <div className="mb-8">
           <h1 className="text-9xl font-bold bg-gradient-to-r from-[#1A5F3D] to-[#3FAF7D] bg-clip-text text-transparent mb-4">
@@ -38,6 +42,8 @@ export function NotFound() {
           <QuickLink to="/services" label="Our Services" />
         </div>
       </div>
+      </div>
+      <Footer />
     </div>
   );
 }

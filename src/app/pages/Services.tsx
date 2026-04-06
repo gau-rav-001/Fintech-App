@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
+import { useAuth } from "../auth/AuthContext";
 import {
   TrendingUp,
   Shield,
@@ -677,6 +678,7 @@ const servicesMeta = [
 
 export function Services() {
   const { language } = useLanguage();
+  const { isAuthenticated } = useAuth();
   const page =
     servicesPageContent[language as keyof typeof servicesPageContent];
 
@@ -810,10 +812,10 @@ export function Services() {
             </p>
             <div className="flex flex-wrap justify-center gap-4">
               <Link
-                to="/signup"
+                to={isAuthenticated ? "/dashboard" : "/signup"}
                 className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[#D8F46B] text-black font-semibold shadow-[0_10px_30px_rgba(184,233,134,0.35)] hover:scale-105 hover:shadow-[0_15px_40px_rgba(184,233,134,0.45)] transition-all"
               >
-                {page.ctaPrimary}
+                {isAuthenticated ? "Go to Dashboard" : page.ctaPrimary}
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link

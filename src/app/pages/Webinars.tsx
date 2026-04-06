@@ -2,6 +2,7 @@ import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { Video, Calendar, Clock, User, Play } from "lucide-react";
 import { motion } from "motion/react";
+import { getAdminContent } from "../data/mockData";
 
 const upcomingWebinars = [
   {
@@ -86,6 +87,43 @@ const pastWebinars = [
 ];
 
 export function Webinars() {
+  const cms = getAdminContent();
+
+  // Merge admin-entered webinars with hardcoded fallback, deduplicate by title
+  const adminWebinars = cms.webinars.map(w => ({
+    id: parseInt(w.id.replace(/\D/g, '')) || Math.random(),
+    title: w.title,
+    description: w.description,
+    speaker: w.speaker,
+    role: "Financial Expert",
+    date: w.date,
+    time: w.time,
+    duration: w.duration,
+    status: w.status,
+    link: w.link,
+  }));
+  const adminTitles = new Set(adminWebinars.map(w => w.title));
+  const mergedUpcoming = [
+    ...adminWebinars.filter(w => w.status === "upcoming"),
+    ...upcomingWebinars.filter(w => !adminTitles.has(w.title)),
+  ];
+  const mergedPast = [
+    ...adminWebinars.filter(w => w.status === "completed"),
+    ...pastWebinars,
+  ];
+
+  // Videos from admin
+  const adminVideos = cms.videos.map((v, i) => ({
+    id: i + 100,
+    title: v.title,
+    description: v.description,
+    date: new Date(v.createdAt).toLocaleDateString("en-IN", { month: "short", year: "numeric" }),
+    duration: "45 mins",
+    views: "—",
+    status: "recorded" as const,
+  }));
+  const displayPast = adminVideos.length > 0 ? [...adminVideos, ...mergedPast] : mergedPast;
+
   return (
     <div className="min-h-screen bg-[#F7F9FB]">
       <Navbar />
@@ -119,7 +157,7 @@ export function Webinars() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
-            {upcomingWebinars.map((webinar, index) => (
+            {mergedUpcoming.map((webinar, index) => (
               <UpcomingWebinarCard key={webinar.id} webinar={webinar} index={index} />
             ))}
           </div>
@@ -135,7 +173,7 @@ export function Webinars() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {pastWebinars.map((webinar, index) => (
+            {displayPast.map((webinar, index) => (
               <PastWebinarCard key={webinar.id} webinar={webinar} index={index} />
             ))}
           </div>

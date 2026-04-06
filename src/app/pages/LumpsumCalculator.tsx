@@ -1,13 +1,44 @@
 import { useState } from "react";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
+import { useAuth } from "../auth/AuthContext";
+import { getUserProfile, saveUserProfile } from "../data/userProfile";
+import { syncProfileToFinancialData } from "../data/syncProfile";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { Calculator, TrendingUp } from "lucide-react";
 
 export function LumpsumCalculator() {
+  const { user } = useAuth();
   const [investmentAmount, setInvestmentAmount] = useState(100000);
   const [expectedReturn, setExpectedReturn] = useState(12);
   const [timePeriod, setTimePeriod] = useState(10);
+  const [savedToast, setSavedToast] = useState<string | null>(null);
+
+  function handleSavePlan() {
+    if (!user) { setSavedToast("Please log in to save."); setTimeout(() => setSavedToast(null), 3000); return; }
+    const up = getUserProfile(user.id);
+    if (!up) return;
+    const updated = {
+      ...up,
+      investments: [
+        ...up.investments.filter(i => !i.id.startsWith("lump_")),
+        {
+          id: `lump_${Date.now()}`,
+          type: "mutual_fund" as const,
+          name: `Lumpsum — ₹${investmentAmount.toLocaleString("en-IN")}`,
+          investedAmount: investmentAmount,
+          currentValue: result.futureValue,
+          durationMonths: timePeriod * 12,
+          expectedReturn,
+        },
+      ],
+      updatedAt: new Date().toISOString(),
+    };
+    saveUserProfile(updated);
+    syncProfileToFinancialData(updated);
+    setSavedToast("Investment saved to your profile!");
+    setTimeout(() => setSavedToast(null), 3000);
+  }
 
   // Calculate Lumpsum returns
   const calculateLumpsum = () => {
@@ -157,6 +188,18 @@ export function LumpsumCalculator() {
                     <TrendingUp className="w-12 h-12 text-white/30" />
                   </div>
                 </div>
+
+                <button
+                  onClick={handleSavePlan}
+                  className="w-full mt-2 rounded-xl bg-[#1A5F3D] text-white font-semibold py-3 hover:bg-[#154d32] transition"
+                >
+                  Save Investment to Profile
+                </button>
+                {savedToast && (
+                  <div className="p-3 rounded-xl bg-green-50 border border-green-200 text-sm text-green-800 font-medium text-center">
+                    ✓ {savedToast}
+                  </div>
+                )}
               </div>
             </div>
 

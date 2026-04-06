@@ -13,6 +13,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../auth/AuthContext";
 import { getFinancialProfile, getAdminContent } from "../data/mockData";
+import { getUserProfile } from "../data/userProfile";
 
 // ─── Sidebar link ─────────────────────────────────────────────────────────────
 function SidebarLink({ icon, label, active, to, onClick }: {
@@ -123,11 +124,13 @@ export function Dashboard() {
 
   const fp   = getFinancialProfile(user?.id ?? "demo_001");
   const cms  = getAdminContent();
+  const up   = getUserProfile(user?.id ?? "");
 
   function handleLogout() { logout(); navigate("/login", { replace: true }); }
 
-  const displayName  = user?.name  ?? "User";
-  const displayEmail = user?.email ?? "";
+  const displayName  = up?.personal.fullName || user?.name  || "User";
+  const displayEmail = up?.personal.email    || user?.email || "";
+  const avatarUrl    = up?.personal.avatarDataUrl || user?.avatar;
   const initials     = displayName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
   // ── Computed financials ──────────────────────────────────────────────────
@@ -220,8 +223,10 @@ export function Dashboard() {
 
               {/* User badge */}
               <div className="flex items-center gap-3 p-3 rounded-xl bg-[#f0faf4] border border-[#c6e8d5] mb-5">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center text-white text-xs font-bold">
-                  {initials}
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center text-white text-xs font-bold overflow-hidden flex-shrink-0">
+                  {avatarUrl
+                    ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                    : initials}
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-gray-800 truncate">{displayName}</p>
@@ -248,7 +253,7 @@ export function Dashboard() {
             </div>
 
             <div className="p-5 border-t border-gray-100">
-              <SidebarLink icon={<Settings className="w-4 h-4" />} label="Settings" />
+              <SidebarLink icon={<Settings className="w-4 h-4" />} label="Settings" to="/settings" />
               <button onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-all mt-1">
                 <LogOut className="w-4 h-4" /> Logout
@@ -279,9 +284,11 @@ export function Dashboard() {
                 <p className="text-xs font-semibold text-gray-800">{displayName}</p>
                 <p className="text-xs text-gray-400">{displayEmail}</p>
               </div>
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center text-white text-xs font-bold cursor-pointer"
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center text-white text-xs font-bold cursor-pointer overflow-hidden"
                 onClick={() => setActiveTab("profile")}>
-                {initials}
+                {avatarUrl
+                  ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                  : initials}
               </div>
             </div>
           </div>
@@ -445,6 +452,29 @@ export function Dashboard() {
                     </div>
                   </div>
                 )}
+                {/* Learning videos from admin */}
+                {cms.videos.length > 0 && (
+                  <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Play className="w-4 h-4 text-[#1A5F3D]" />
+                      <h3 className="font-bold text-gray-900 text-sm">Learning Resources</h3>
+                    </div>
+                    <div className="space-y-3">
+                      {cms.videos.slice(0, 2).map(v => (
+                        <a key={v.id} href={v.youtubeUrl || "#"} target="_blank" rel="noopener noreferrer"
+                          className="flex items-start gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer">
+                          <div className="w-8 h-8 rounded-lg bg-red-500 flex items-center justify-center shrink-0">
+                            <Play className="w-3 h-3 text-white" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-gray-800 truncate">{v.title}</p>
+                            <p className="text-xs text-gray-500 line-clamp-1">{v.description}</p>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -455,16 +485,25 @@ export function Dashboard() {
               {/* Header */}
               <div className="bg-gradient-to-br from-[#1A5F3D] to-[#2D7A4E] rounded-2xl p-6 text-white">
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-2xl font-bold">
-                    {initials}
+                  <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-2xl font-bold overflow-hidden">
+                    {avatarUrl
+                      ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover rounded-2xl" />
+                      : initials}
                   </div>
                   <div>
                     <h2 className="text-xl font-bold">{displayName}</h2>
                     <p className="text-white/75 text-sm">{displayEmail}</p>
-                    <p className="text-white/75 text-sm">{user?.phone}</p>
+                    <p className="text-white/75 text-sm">{up?.personal.mobile || user?.phone || ""}</p>
                     <span className="inline-block mt-2 text-xs bg-white/20 px-2 py-0.5 rounded-full">
-                      {fp.employmentType === "salaried" ? "Salaried" : fp.employmentType === "business" ? "Business Owner" : "Self-Employed"} · {fp.cityTier === "tier1" ? "Tier 1 City" : fp.cityTier === "tier2" ? "Tier 2 City" : "Tier 3 City"}
+                      {up?.personal.occupation || (fp.employmentType === "salaried" ? "Salaried" : fp.employmentType === "business" ? "Business Owner" : "Self-Employed")}
+                      {up?.personal.city ? ` · ${up.personal.city}` : ""}
                     </span>
+                  </div>
+                  <div className="ml-auto">
+                    <Link to="/settings"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 rounded-xl text-xs font-semibold transition-all">
+                      <Settings className="w-3.5 h-3.5" /> Edit Profile
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -476,16 +515,18 @@ export function Dashboard() {
                     <User className="w-4 h-4 text-[#1A5F3D]" /> Personal Information
                   </h3>
                   {[
-                    ["Date of Birth", fp.dob ? new Date(fp.dob).toLocaleDateString("en-IN") : "—"],
-                    ["Marital Status", fp.maritalStatus === "married" ? "Married" : "Single"],
-                    ["Dependents", String(fp.dependents)],
-                    ["Employment", fp.employmentType === "salaried" ? "Salaried" : fp.employmentType === "business" ? "Business Owner" : "Self-Employed"],
-                    ["City Tier", fp.cityTier === "tier1" ? "Tier 1 (Metro)" : fp.cityTier === "tier2" ? "Tier 2" : "Tier 3"],
-                    ["Risk Profile", user?.riskProfile ?? "Moderate"],
+                    ["Full Name",       up?.personal.fullName || displayName],
+                    ["Date of Birth",   up?.personal.dob ? new Date(up.personal.dob).toLocaleDateString("en-IN") : fp.dob ? new Date(fp.dob).toLocaleDateString("en-IN") : "—"],
+                    ["Gender",          up?.personal.gender ? up.personal.gender.replace(/_/g, " ") : "—"],
+                    ["Marital Status",  up?.personal.maritalStatus || fp.maritalStatus],
+                    ["Dependents",      String(up?.personal.dependents ?? fp.dependents)],
+                    ["Occupation",      up?.personal.occupation || "—"],
+                    ["Location",        up ? `${up.personal.city}, ${up.personal.state}`.replace(/^, |, $/, "") : "—"],
+                    ["Risk Tolerance",  up?.riskProfile.tolerance || user?.riskProfile || "Moderate"],
                   ].map(([k, v]) => (
                     <div key={k} className="flex justify-between py-2 border-b border-gray-50 last:border-0">
                       <span className="text-xs text-gray-500">{k}</span>
-                      <span className="text-xs font-semibold text-gray-800">{v}</span>
+                      <span className="text-xs font-semibold text-gray-800 capitalize">{v}</span>
                     </div>
                   ))}
                 </div>
@@ -534,19 +575,43 @@ export function Dashboard() {
                 <div className="space-y-4">
                   <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                     <h3 className="font-bold text-gray-900 mb-4 text-sm flex items-center gap-2">
-                      <ArrowDownRight className="w-4 h-4 text-red-500" /> Liabilities
+                      <ArrowDownRight className="w-4 h-4 text-red-500" /> Loans & Liabilities
                     </h3>
-                    {[
-                      ["Home Loan",        fmt(fp.homeLoan)],
-                      ["Car Loan",         fmt(fp.carLoan)],
-                      ["Credit Card Debt", fmt(fp.creditCardDebt)],
-                      ["Total Liabilities",fmt(stats?.totalLiabilities ?? 0)],
-                    ].map(([k, v], i) => (
-                      <div key={k} className={`flex justify-between py-2 border-b border-gray-50 last:border-0`}>
-                        <span className={`text-xs ${i === 3 ? "text-red-500 font-semibold" : "text-gray-500"}`}>{k}</span>
-                        <span className={`text-xs font-semibold ${i === 3 ? "text-red-500" : "text-gray-800"}`}>{v}</span>
+                    {up?.loans && up.loans.length > 0 ? (
+                      <div className="space-y-3">
+                        {up.loans.map((loan) => (
+                          <div key={loan.id} className="p-3 rounded-xl bg-red-50 border border-red-100">
+                            <div className="flex justify-between items-start mb-1">
+                              <p className="text-xs font-semibold text-gray-800 capitalize">{loan.lenderName || loan.type.replace("_"," ")}</p>
+                              <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium capitalize">{loan.type.replace("_"," ")}</span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 text-xs mt-1.5">
+                              <div><p className="text-gray-400">Outstanding</p><p className="font-bold text-red-600">{fmt(loan.outstandingAmount)}</p></div>
+                              <div><p className="text-gray-400">EMI/mo</p><p className="font-semibold text-gray-700">{fmt(loan.emi)}</p></div>
+                              <div><p className="text-gray-400">Rate</p><p className="font-semibold text-gray-700">{loan.interestRate}%</p></div>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="flex justify-between py-2 border-t border-gray-100 mt-1">
+                          <span className="text-xs text-red-500 font-semibold">Total Liabilities</span>
+                          <span className="text-xs font-bold text-red-500">{fmt(stats?.totalLiabilities ?? 0)}</span>
+                        </div>
                       </div>
-                    ))}
+                    ) : (
+                      <div>
+                        {[
+                          ["Home Loan",        fmt(fp.homeLoan)],
+                          ["Car Loan",         fmt(fp.carLoan)],
+                          ["Credit Card Debt", fmt(fp.creditCardDebt)],
+                          ["Total Liabilities",fmt(stats?.totalLiabilities ?? 0)],
+                        ].map(([k, v], i) => (
+                          <div key={k} className="flex justify-between py-2 border-b border-gray-50 last:border-0">
+                            <span className={`text-xs ${i === 3 ? "text-red-500 font-semibold" : "text-gray-500"}`}>{k}</span>
+                            <span className={`text-xs font-semibold ${i === 3 ? "text-red-500" : "text-gray-800"}`}>{v}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
@@ -590,6 +655,26 @@ export function Dashboard() {
           {/* ════ TAB: GOALS ════ */}
           {activeTab === "goals" && (
             <div className="space-y-6 max-w-3xl">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-bold text-gray-900">Financial Goals</h2>
+                <Link to="/settings" state={{ tab: "goals" }}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-[#1A5F3D] hover:underline">
+                  <Settings className="w-3.5 h-3.5" /> Edit Goals
+                </Link>
+              </div>
+
+              {(!fp?.goals || fp.goals.length === 0) ? (
+                <div className="bg-white rounded-2xl p-10 border border-dashed border-gray-200 text-center">
+                  <Target className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 font-medium mb-1">No goals set yet</p>
+                  <p className="text-sm text-gray-400 mb-4">Add financial goals to track your progress</p>
+                  <Link to="/settings" state={{ tab: "goals" }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#1A5F3D] text-white rounded-xl text-sm font-semibold hover:bg-[#154d32] transition">
+                    <Target className="w-4 h-4" /> Add Your First Goal
+                  </Link>
+                </div>
+              ) : (
+              <>
               <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                 <h3 className="font-bold text-gray-900 mb-6 text-sm">Goal Progress Tracker</h3>
                 {fp?.goals.map((g) => (
@@ -640,6 +725,8 @@ export function Dashboard() {
                   );
                 })}
               </div>
+              </> /* end else (has goals) */
+              )}
             </div>
           )}
 

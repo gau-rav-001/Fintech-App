@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import {
@@ -55,6 +55,9 @@ import {
   PolarAngleAxis,
   Radar,
 } from "recharts";
+import { useAuth } from "../auth/AuthContext";
+import { getUserProfile, saveUserProfile } from "../data/userProfile";
+import { syncProfileToFinancialData } from "../data/syncProfile";
 
 const STEPS = [
   { id: "basic",      label: "Basic Details",   icon: <User className="w-4 h-4" /> },
@@ -306,14 +309,105 @@ function StepCard({ title, icon, desc, children }: {
 const inputCls = "w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-[#1A5F3D]/30 focus:border-[#1A5F3D] outline-none transition-all bg-white placeholder:text-gray-400";
 
 export function FinancialPlanner() {
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
-  const [form, setForm] = useState<FormData>(INITIAL);
+  const [saved, setSaved] = useState(false);
+
+  // Pre-fill from saved UserProfile
+  const [form, setForm] = useState<FormData>(() => {
+    const up = user ? getUserProfile(user.id) : null;
+    if (!up) return INITIAL;
+    return {
+      name:             up.personal.fullName || "",
+      dob:              up.personal.dob || "",
+      maritalStatus:    up.personal.maritalStatus || "",
+      dependents:       String(up.personal.dependents ?? ""),
+      employmentType:   up.income.incomeSource === "salaried" ? "salaried"
+                      : up.income.incomeSource === "business"  ? "business"
+                      : up.income.incomeSource === "self_employed" ? "self_employed" : "",
+      incomeStability:  up.income.incomeSource === "salaried" ? "stable" : "moderate",
+      monthlyIncome:    String(up.income.monthlyIncome || ""),
+      cityTier:         up.personal.city ? "tier1" : "",
+      livingStatus:     up.personal.maritalStatus === "married" ? "family" : "single",
+      financialKnowledge: up.riskProfile.experience === "expert" ? "advanced"
+                        : up.riskProfile.experience === "intermediate" ? "intermediate" : "beginner",
+      smoking:          "",
+      medicalConditions:"",
+      goalType:         up.goals[0]?.category || "",
+      goalAmount:       String(up.goals[0]?.targetAmount || ""),
+      yearsToGoal:      up.goals[0]?.targetDate
+                          ? String(Math.max(1, new Date(up.goals[0].targetDate).getFullYear() - new Date().getFullYear()))
+                          : "",
+      currentSavings:   String(up.goals[0]?.currentSavings || ""),
+      monthlyExpenses:  String(up.expenses.reduce((s, e) => s + e.amount, 0) || ""),
+    };
+  });
 
   const set = (field: keyof FormData, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
-  const next = () => { setDir(1);  setStep((s) => Math.min(s + 1, STEPS.length - 1)); };
+  const next = () => {
+    setDir(1);
+    setStep((s) => {
+      const next = Math.min(s + 1, STEPS.length - 1);
+      // When arriving at results step, save back to UserProfile
+      if (next === STEPS.length - 1 && user) {
+        const up = getUserProfile(user.id);
+        if (up) {
+          const monthlyInc = parseFloat(form.monthlyIncome) || up.income.monthlyIncome;
+          const goalAmt    = parseFloat(form.goalAmount) || 0;
+          const goalYears  = parseInt(form.yearsToGoal)  || 5;
+          const savings    = parseFloat(form.currentSavings) || 0;
+          const expenses   = parseFloat(form.monthlyExpenses) || up.expenses.reduce((s, e) => s + e.amount, 0);
+
+          // Update personal fields if planner has newer data
+          const updated = {
+            ...up,
+            personal: {
+              ...up.personal,
+              fullName:      form.name || up.personal.fullName,
+              dob:           form.dob  || up.personal.dob,
+              maritalStatus: (form.maritalStatus as any) || up.personal.maritalStatus,
+              dependents:    parseInt(form.dependents) || up.personal.dependents,
+            },
+            income: {
+              ...up.income,
+              monthlyIncome:  monthlyInc,
+              incomeSource:   (form.employmentType as any) || up.income.incomeSource,
+            },
+            riskProfile: {
+              ...up.riskProfile,
+              experience:  (form.financialKnowledge === "advanced" ? "expert"
+                          : form.financialKnowledge === "intermediate" ? "intermediate"
+                          : "beginner") as any,
+            },
+            // Add/update first goal from planner data
+            goals: goalAmt > 0 ? [
+              {
+                ...( up.goals[0] ?? {
+                  id: `g_plan_${Date.now()}`,
+                  name: form.goalType || "Financial Goal",
+                  category: (form.goalType as any) || "other",
+                  icon: "🎯",
+                  priority: "high" as const,
+                }),
+                targetAmount:  goalAmt,
+                currentSavings: savings,
+                targetDate: new Date(new Date().getFullYear() + goalYears, 0, 1).toISOString().slice(0, 10),
+              },
+              ...up.goals.slice(1),
+            ] : up.goals,
+            updatedAt: new Date().toISOString(),
+          };
+          saveUserProfile(updated);
+          syncProfileToFinancialData(updated);
+          setSaved(true);
+        }
+      }
+      return next;
+    });
+  };
   const prev = () => { setDir(-1); setStep((s) => Math.max(s - 1, 0)); };
 
   const age        = useMemo(() => calcAge(form.dob),              [form.dob]);
@@ -644,6 +738,16 @@ export function FinancialPlanner() {
               {/* Step 5: Results */}
               {step === 5 && (
                 <div className="space-y-6">
+
+                  {/* Saved banner */}
+                  {saved && (
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-green-50 border border-green-200">
+                      <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                      <p className="text-sm text-green-800 font-medium">
+                        Plan saved to your profile — your dashboard is now updated.
+                      </p>
+                    </div>
+                  )}
 
                   {/* Profile header */}
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">

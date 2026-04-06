@@ -240,9 +240,9 @@ export function Signup() {
                   className="w-4 h-4 text-[#1A5F3D] border-gray-300 rounded focus:ring-[#1A5F3D] mt-1" />
                 <span className="text-sm text-gray-600">
                   I agree to the{" "}
-                  <a href="#" className="text-[#1A5F3D] hover:underline">Terms of Service</a>
+                  <span className="text-[#1A5F3D] underline cursor-default">Terms of Service</span>
                   {" "}and{" "}
-                  <a href="#" className="text-[#1A5F3D] hover:underline">Privacy Policy</a>
+                  <span className="text-[#1A5F3D] underline cursor-default">Privacy Policy</span>
                 </span>
               </label>
               {errs.agree && <p className="mt-1.5 text-xs text-red-500">{errs.agree}</p>}

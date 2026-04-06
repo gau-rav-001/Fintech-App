@@ -43,7 +43,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     storeAdminSession(s, remember); setAdminState(s);
   }, []);
 
-  const logout = useCallback(() => { serviceLogout(); setSessionState(null); }, []);
+  const logout = useCallback(() => {
+    serviceLogout();
+    serviceAdminLogout(); // also clear admin session so activeSession becomes null
+    setSessionState(null);
+    setAdminState(null);
+  }, []);
   const adminLogout = useCallback(() => { serviceAdminLogout(); setAdminState(null); }, []);
 
   const updateUser = useCallback((patch: Partial<AuthUser>) => {
@@ -55,13 +60,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Active session = admin takes priority when on admin routes
+  // Active session: admin session takes priority only when it exists AND user is on an admin path
+  // For regular user routes, always use the user session
   const activeSession = adminSession ?? session;
 
   const value = useMemo<AuthContextValue>(() => ({
     user:            activeSession?.user ?? null,
     session:         activeSession,
-    isAuthenticated: !!activeSession,
+    isAuthenticated: !!(session || adminSession),  // true if either session is active
     isAdmin:         activeSession?.user.role === "admin",
     role:            activeSession?.user.role ?? null,
     isLoading,
