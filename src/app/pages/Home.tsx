@@ -1,7 +1,6 @@
 import { Link } from "react-router";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
-import { useAuth } from "../auth/AuthContext";
 import {
   TrendingUp,
   Shield,
@@ -20,8 +19,6 @@ import { useLanguage } from "../LanguageContext";
 
 export function Home() {
   const { t } = useLanguage();
-  const { isAuthenticated } = useAuth();
-  const ctaTarget = isAuthenticated ? "/dashboard" : "/signup";
   const home = t.home;
 
   return (
@@ -67,10 +64,10 @@ export function Home() {
 
               <div className="flex flex-wrap gap-4 mb-10">
                 <Link
-                  to={ctaTarget}
+                  to="/signup"
                   className="inline-flex items-center px-8 py-4 rounded-full bg-[#D8F46B] text-black font-semibold hover:scale-[1.02] hover:shadow-xl transition-all"
                 >
-                  {isAuthenticated ? "Go to Dashboard" : home.heroPrimaryCta}
+                  {home.heroPrimaryCta}
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Link>
 
@@ -242,6 +239,13 @@ export function Home() {
               link="/services"
               cta={home.learnMore}
             />
+            <ServiceCard
+  icon={<Shield className="w-8 h-8" />}
+  title={home.serviceInsurancePlanning}
+  description={home.serviceInsurancePlanningDesc}
+  link="/services"
+  cta={home.learnMore}
+/>
           </div>
         </div>
       </section>
