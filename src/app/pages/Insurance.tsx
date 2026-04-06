@@ -290,6 +290,8 @@ export function Insurance() {
               index={index}
               expanded={expandedId === ins.id}
               onToggle={() => toggle(ins.id)}
+              isAuthenticated={isAuthenticated}
+              onGetQuote={handleGetQuote}
             />
           ))}
         </div>
@@ -408,11 +410,15 @@ function InsuranceCard({
   index,
   expanded,
   onToggle,
+  isAuthenticated,
+  onGetQuote,
 }: {
   ins: (typeof insuranceTypes)[0];
   index: number;
   expanded: boolean;
   onToggle: () => void;
+  isAuthenticated: boolean;
+  onGetQuote: (title: string) => void;
 }) {
   return (
     <motion.div
@@ -567,7 +573,7 @@ function InsuranceCard({
                   <div className="mt-4 flex gap-3">
                     {isAuthenticated ? (
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleGetQuote(ins.title); }}
+                        onClick={(e) => { e.stopPropagation(); onGetQuote(ins.title); }}
                         className={`flex-1 text-center py-2.5 rounded-xl bg-gradient-to-br ${ins.accent} text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-all`}
                       >
                         Get Quote
