@@ -1,6 +1,8 @@
 import { Link } from "react-router";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
+import { useAuth } from "../auth/AuthContext";
+import { ServiceCarousel, type ServiceItem } from "../components/ServiceCarousel";
 import Testimonials from "./Testimonials";
 import {
   TrendingUp,
@@ -14,12 +16,16 @@ import {
   ArrowRight,
   CheckCircle,
   BarChart3,
+  ShieldCheck,
+  Briefcase,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useLanguage } from "../LanguageContext";
 
 export function Home() {
   const { t } = useLanguage();
+  const { isAuthenticated } = useAuth();
+  const ctaTarget = isAuthenticated ? "/dashboard" : "/signup";
   const home = t.home;
 
   return (
@@ -65,10 +71,10 @@ export function Home() {
 
               <div className="flex flex-wrap gap-4 mb-10">
                 <Link
-                  to="/signup"
+                  to={ctaTarget}
                   className="inline-flex items-center px-8 py-4 rounded-full bg-[#D8F46B] text-black font-semibold hover:scale-[1.02] hover:shadow-xl transition-all"
                 >
-                  {home.heroPrimaryCta}
+                  {isAuthenticated ? "Go to Dashboard" : home.heroPrimaryCta}
                   <ArrowRight className="w-5 h-5 ml-2" />
                 </Link>
 
@@ -185,7 +191,8 @@ export function Home() {
         <div className="absolute bottom-0 right-1/4 h-72 w-72 rounded-full bg-[#3FAF7D]/10 blur-3xl" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
+          {/* Section header */}
+          <div className="text-center mb-14">
             <div className="inline-flex items-center rounded-full border border-[#d7eadf] bg-white/70 backdrop-blur px-4 py-2 text-sm font-medium text-[#1A5F3D] mb-5">
               {home.servicesBadge}
             </div>
@@ -196,58 +203,80 @@ export function Home() {
               {home.servicesDescription}
             </p>
           </div>
+        </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <ServiceCard
-              icon={<Target className="w-8 h-8" />}
-              title={home.serviceInvestmentPlanning}
-              description={home.serviceInvestmentPlanningDesc}
-              link="/services"
-              cta={home.learnMore}
-            />
-            <ServiceCard
-              icon={<Shield className="w-8 h-8" />}
-              title={home.serviceRiskManagement}
-              description={home.serviceRiskManagementDesc}
-              link="/services"
-              cta={home.learnMore}
-            />
-            <ServiceCard
-              icon={<PieChart className="w-8 h-8" />}
-              title={home.servicePortfolioManagement}
-              description={home.servicePortfolioManagementDesc}
-              link="/services"
-              cta={home.learnMore}
-            />
-            <ServiceCard
-              icon={<TrendingUp className="w-8 h-8" />}
-              title={home.serviceWealthGrowth}
-              description={home.serviceWealthGrowthDesc}
-              link="/services"
-              cta={home.learnMore}
-            />
-            <ServiceCard
-              icon={<Calculator className="w-8 h-8" />}
-              title={home.serviceTaxPlanning}
-              description={home.serviceTaxPlanningDesc}
-              link="/services"
-              cta={home.learnMore}
-            />
-            <ServiceCard
-              icon={<Users className="w-8 h-8" />}
-              title={home.serviceExpertGuidance}
-              description={home.serviceExpertGuidanceDesc}
-              link="/services"
-              cta={home.learnMore}
-            />
-            <ServiceCard
-  icon={<Shield className="w-8 h-8" />}
-  title={home.serviceInsurancePlanning}
-  description={home.serviceInsurancePlanningDesc}
-  link="/services"
-  cta={home.learnMore}
-/>
-          </div>
+        {/* ── Full-bleed carousel (no max-w constraint) ── */}
+        <ServiceCarousel
+          speed={0.5}
+          services={[
+            {
+              icon: <Target className="w-7 h-7" />,
+              title: home.serviceInvestmentPlanning,
+              description: home.serviceInvestmentPlanningDesc,
+              link: "/services",
+              cta: home.learnMore,
+            },
+            {
+              icon: <Shield className="w-7 h-7" />,
+              title: home.serviceRiskManagement,
+              description: home.serviceRiskManagementDesc,
+              link: "/services",
+              cta: home.learnMore,
+            },
+            {
+              icon: <PieChart className="w-7 h-7" />,
+              title: home.servicePortfolioManagement,
+              description: home.servicePortfolioManagementDesc,
+              link: "/services",
+              cta: home.learnMore,
+            },
+            {
+              icon: <TrendingUp className="w-7 h-7" />,
+              title: home.serviceWealthGrowth,
+              description: home.serviceWealthGrowthDesc,
+              link: "/services",
+              cta: home.learnMore,
+            },
+            {
+              icon: <Calculator className="w-7 h-7" />,
+              title: home.serviceTaxPlanning,
+              description: home.serviceTaxPlanningDesc,
+              link: "/services",
+              cta: home.learnMore,
+            },
+            {
+              icon: <Users className="w-7 h-7" />,
+              title: home.serviceExpertGuidance,
+              description: home.serviceExpertGuidanceDesc,
+              link: "/services",
+              cta: home.learnMore,
+            },
+            {
+              icon: <Briefcase className="w-7 h-7" />,
+              title: "Retirement Planning",
+              description: "Secure your golden years with personalised corpus plans, pension strategy, and healthcare coverage.",
+              link: "/services",
+              cta: home.learnMore,
+            },
+            {
+              icon: <ShieldCheck className="w-7 h-7" />,
+              title: "Insurance",
+              description: "Health, life, vehicle, home and business — comprehensive coverage starting at ₹299/month.",
+              link: "/insurance",
+              cta: home.learnMore,
+            },
+          ] satisfies ServiceItem[]}
+        />
+
+        {/* View all link */}
+        <div className="flex justify-center mt-10">
+          <Link
+            to="/services"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full border-2 border-[#1A5F3D] text-[#1A5F3D] font-semibold hover:bg-[#1A5F3D] hover:text-white transition-all"
+          >
+            View All Services
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </section>
 
@@ -414,8 +443,8 @@ export function Home() {
           </div>
         </div>
       </section>
-      
-      {/* Testimonials Section */}
+
+     {/* Testimonials Section */}
         <Testimonials />
 
       {/* WhatsApp CTA */}
@@ -483,52 +512,6 @@ function MetricGlassCard({
       <p className="text-sm text-white/70 mb-1">{label}</p>
       <p className="text-lg font-bold text-white">{value}</p>
     </div>
-  );
-}
-
-function ServiceCard({
-  icon,
-  title,
-  description,
-  link,
-  cta,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  link: string;
-  cta: string;
-}) {
-  return (
-    <motion.div
-      whileHover={{ y: -10, scale: 1.02 }}
-      className="relative group overflow-hidden rounded-3xl border border-white/20 bg-white/60 backdrop-blur-xl p-8 transition-all duration-500 hover:shadow-[0_20px_60px_rgba(0,0,0,0.12)]"
-    >
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition duration-500 bg-gradient-to-br from-[#1A5F3D]/10 via-transparent to-[#B8E986]/20" />
-      <div className="absolute -top-20 -left-20 w-60 h-60 bg-white/30 blur-3xl opacity-0 group-hover:opacity-30 transition duration-700" />
-
-      <div className="relative z-10">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center text-white mb-6 shadow-lg group-hover:scale-110 transition">
-          {icon}
-        </div>
-
-        <h3 className="text-xl font-bold text-gray-900 mb-3">
-          {title}
-        </h3>
-
-        <p className="text-gray-600 mb-5 leading-6">
-          {description}
-        </p>
-
-        <Link
-          to={link}
-          className="inline-flex items-center text-[#1A5F3D] font-semibold group-hover:gap-2 transition-all"
-        >
-          {cta}
-          <ArrowRight className="w-4 h-4 ml-1" />
-        </Link>
-      </div>
-    </motion.div>
   );
 }
 
