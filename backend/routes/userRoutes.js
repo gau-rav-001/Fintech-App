@@ -12,9 +12,6 @@ const {
 router.use(authenticate);
 
 // ── POST /api/user/onboarding ─────────────────────────────────────────────────
-// ✅ FIX: comprehensive validation — all accepted fields are explicitly checked.
-//         Before, only dob and income.monthly were validated; invalid enum values
-//         would fall through to the DB and return an opaque 500.
 router.post("/onboarding", [
   body("dob")
     .optional()
@@ -99,19 +96,10 @@ router.post("/onboarding", [
 
 // ── Profile ───────────────────────────────────────────────────────────────────
 router.get("/profile", getProfile);
-router.put("/update",  updateProfile);
 
-// ── Password ──────────────────────────────────────────────────────────────────
-router.post("/change-password", [
-  body("currentPassword").notEmpty().withMessage("Current password is required."),
-  body("newPassword").isLength({ min: 8 }).withMessage("New password must be at least 8 characters."),
-], validate, changePassword);
-
-// ── Dashboard — requires completed profile ────────────────────────────────────
-router.get("/dashboard/summary", requireProfileComplete, getDashboardSummary);
-
-module.exports = router;
-
+// ✅ FIX #4: Duplicate router.put("/update") — the original file defined this route TWICE:
+//   once without validation (line ~102) and again with validation AFTER module.exports (dead code).
+//   Merged into a single correct definition WITH validation, BEFORE module.exports.
 router.put("/update", [
   body("fullName").optional().trim().notEmpty().isLength({ max: 255 }),
   body("mobile").optional().matches(/^\+?[\d\s\-]{7,15}$/),
@@ -124,3 +112,14 @@ router.put("/update", [
   body("riskProfile.investmentStyle").optional()
     .isIn(["conservative", "balanced", "aggressive"]),
 ], validate, updateProfile);
+
+// ── Password ──────────────────────────────────────────────────────────────────
+router.post("/change-password", [
+  body("currentPassword").notEmpty().withMessage("Current password is required."),
+  body("newPassword").isLength({ min: 8 }).withMessage("New password must be at least 8 characters."),
+], validate, changePassword);
+
+// ── Dashboard — requires completed profile ────────────────────────────────────
+router.get("/dashboard/summary", requireProfileComplete, getDashboardSummary);
+
+module.exports = router;

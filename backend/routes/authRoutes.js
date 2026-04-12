@@ -7,6 +7,7 @@ const { authenticate } = require("../middleware/auth");
 const {
   signup, login, verifyOTPHandler, resendOTP,
   googleCallback, getMe, logout,
+  exchangeCode,   // ✅ FIX #5: import the new exchangeCode handler
 } = require("../controllers/authController");
 
 // ── OTP rate limiter ──────────────────────────────────────────────────────────
@@ -44,6 +45,14 @@ router.post("/login",      loginRules,  validate, login);
 router.post("/verify-otp", otpRules,    validate, verifyOTPHandler);
 router.post("/resend-otp", otpLimiter,
   [body("email").isEmail().normalizeEmail()], validate, resendOTP);
+
+// ✅ FIX #5: Google OAuth code-exchange endpoint — AuthCallback.tsx calls this
+//   but it was never defined. Without it the frontend gets a 404 after Google OAuth.
+router.post("/exchange-code",
+  [body("code").notEmpty().withMessage("Code is required.")],
+  validate,
+  exchangeCode,
+);
 
 // Google OAuth
 router.get("/google",

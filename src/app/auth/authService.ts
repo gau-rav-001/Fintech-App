@@ -28,17 +28,31 @@ export interface AuthSession {
 }
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
-const STORAGE_KEY   = "sf_session";
-const ADMIN_KEY     = "sf_admin_session";
-const OTP_KEY       = "sf_otp_store";
-const USERS_DB_KEY  = "sf_users_db";
-const ADMIN_DB_KEY  = "sf_admin_db";
+const STORAGE_KEY  = "sf_session";
+const ADMIN_KEY    = "sf_admin_session";
+const OTP_KEY      = "sf_otp_store";
+const USERS_DB_KEY = "sf_users_db";
+const ADMIN_DB_KEY = "sf_admin_db";
+
+// ── Password hashing (SHA-256 via SubtleCrypto) ───────────────────────────────
+async function hashPassword(password: string): Promise<string> {
+  const data = new TextEncoder().encode(password);
+  const buf  = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Pre-computed hashes for seed accounts so seeding is synchronous and instant.
+// SHA-256("demo1234")  = 0ead2060...
+// SHA-256("admin2024") = b8b8eb83...
+const SEED_HASHES = {
+  demo:  "0ead2060b65992dca4769af601a1b3a35ef38cfad2c2c465bb160ea764157c5d",
+  admin: "b8b8eb83374c0bf3b1c3224159f6119dbfff1b7ed6dfecdd80d4e8a895790a34",
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function b64(obj: unknown): string {
   return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
 }
-
 function makeToken(userId: string, role: UserRole, remember: boolean): AuthToken {
   const expiresAt   = Date.now() + (remember ? 30 : 1) * 24 * 60 * 60 * 1000;
   const payload     = { sub: userId, role, iat: Date.now(), exp: expiresAt };
@@ -47,7 +61,8 @@ function makeToken(userId: string, role: UserRole, remember: boolean): AuthToken
 }
 
 // ── Users DB ──────────────────────────────────────────────────────────────────
-type UserRecord = AuthUser & { passwordHash: string };
+type UserRecord  = AuthUser & { passwordHash: string };
+type AdminRecord = AuthUser & { passwordHash: string };
 
 function usersDB(): Record<string, UserRecord> {
   try { return JSON.parse(localStorage.getItem(USERS_DB_KEY) || "{}"); }
@@ -58,9 +73,6 @@ function saveUserRecord(u: UserRecord) {
   localStorage.setItem(USERS_DB_KEY, JSON.stringify(db));
 }
 
-// ── Admin DB ──────────────────────────────────────────────────────────────────
-type AdminRecord = AuthUser & { passwordHash: string };
-
 function adminDB(): Record<string, AdminRecord> {
   try { return JSON.parse(localStorage.getItem(ADMIN_DB_KEY) || "{}"); }
   catch { return {}; }
@@ -70,9 +82,9 @@ function saveAdminRecord(a: AdminRecord) {
   localStorage.setItem(ADMIN_DB_KEY, JSON.stringify(db));
 }
 
-// ── Seed accounts ─────────────────────────────────────────────────────────────
+// ── Seed accounts (synchronous — uses pre-computed hashes) ────────────────────
+// This runs immediately when the module loads, no async needed.
 (function seed() {
-  // Demo user
   const ub = usersDB();
   if (!ub["demo@smartfinance.in"]) {
     saveUserRecord({
@@ -80,17 +92,16 @@ function saveAdminRecord(a: AdminRecord) {
       phone: "+91 98765 43210", provider: "email", role: "user",
       createdAt: new Date().toISOString(),
       monthlyIncome: 75000, cityTier: "tier1", riskProfile: "Moderate",
-      passwordHash: "demo1234",
+      passwordHash: SEED_HASHES.demo,
     });
   }
-  // Admin
   const ab = adminDB();
   if (!ab["admin@smartfinance.in"]) {
     saveAdminRecord({
       id: "admin_001", name: "Admin User", email: "admin@smartfinance.in",
       phone: "+91 99999 00000", provider: "email", role: "admin",
       createdAt: new Date().toISOString(),
-      passwordHash: "admin2024",
+      passwordHash: SEED_HASHES.admin,
     });
   }
 })();
@@ -126,7 +137,7 @@ export function clearSession() {
 export function clearAdminSession() {
   localStorage.removeItem(ADMIN_KEY); sessionStorage.removeItem(ADMIN_KEY);
 }
-export function logout() { clearSession(); }
+export function logout()      { clearSession(); }
 export function adminLogout() { clearAdminSession(); }
 
 // ── OTP ───────────────────────────────────────────────────────────────────────
@@ -167,9 +178,13 @@ export interface LoginResult {
 
 export async function loginWithCredentials(email: string, password: string): Promise<LoginResult> {
   await delay(800);
-  const db = usersDB(); const user = db[email.toLowerCase()];
+  const db   = usersDB();
+  const user = db[email.toLowerCase()];
   if (!user) return { success: false, error: "No account found with this email address." };
-  if (user.passwordHash !== password) return { success: false, error: "Incorrect password. Please try again." };
+
+  const inputHash = await hashPassword(password);
+  if (user.passwordHash !== inputHash) return { success: false, error: "Incorrect password. Please try again." };
+
   const otp = String(Math.floor(100000 + Math.random() * 900000));
   saveOTP(email.toLowerCase(), otp);
   console.info(`[SmartFinance] OTP for ${email}: ${otp}`);
@@ -187,9 +202,10 @@ export async function verifyOTP(email: string, otp: string, remember: boolean): 
   sessionStorage.setItem(OTP_KEY, JSON.stringify(record));
   if (record.code !== otp.trim()) return { success: false, error: `Incorrect OTP. ${3 - record.attempts} attempt(s) remaining.` };
   clearOTP();
-  const db = usersDB(); const user = db[email.toLowerCase()];
+  const db   = usersDB();
+  const user = db[email.toLowerCase()];
   const { passwordHash: _, ...safeUser } = user;
-  const token = makeToken(safeUser.id, "user", remember);
+  const token   = makeToken(safeUser.id, "user", remember);
   const session: AuthSession = { user: safeUser, token };
   storeSession(session, remember);
   return { success: true, session };
@@ -212,19 +228,22 @@ export async function loginWithGoogle(): Promise<LoginResult> {
   };
   const db = usersDB();
   if (!db[googleUser.email]) saveUserRecord({ ...googleUser, passwordHash: "" });
-  const token = makeToken(googleUser.id, "user", true);
+  const token   = makeToken(googleUser.id, "user", true);
   const session: AuthSession = { user: googleUser, token };
   storeSession(session, true);
   return { success: true, session };
 }
 
-export async function registerUser(name: string, email: string, phone: string, password: string): Promise<{ success: boolean; error?: string }> {
+export async function registerUser(
+  name: string, email: string, phone: string, password: string,
+): Promise<{ success: boolean; error?: string }> {
   await delay(900);
   const db = usersDB();
   if (db[email.toLowerCase()]) return { success: false, error: "An account with this email already exists." };
+  const passwordHash = await hashPassword(password);
   saveUserRecord({
-    id: `usr_${Date.now()}`, name, email: email.toLowerCase(), phone, provider: "email",
-    role: "user", createdAt: new Date().toISOString(), passwordHash: password,
+    id: `usr_${Date.now()}`, name, email: email.toLowerCase(), phone,
+    provider: "email", role: "user", createdAt: new Date().toISOString(), passwordHash,
   });
   return { success: true };
 }
@@ -232,11 +251,15 @@ export async function registerUser(name: string, email: string, phone: string, p
 // ── Admin Auth ────────────────────────────────────────────────────────────────
 export async function adminLogin(email: string, password: string): Promise<LoginResult> {
   await delay(700);
-  const db = adminDB(); const admin = db[email.toLowerCase()];
+  const db    = adminDB();
+  const admin = db[email.toLowerCase()];
   if (!admin) return { success: false, error: "Invalid admin credentials." };
-  if (admin.passwordHash !== password) return { success: false, error: "Incorrect password." };
+
+  const inputHash = await hashPassword(password);
+  if (admin.passwordHash !== inputHash) return { success: false, error: "Incorrect password." };
+
   const { passwordHash: _, ...safeAdmin } = admin;
-  const token = makeToken(safeAdmin.id, "admin", true);
+  const token   = makeToken(safeAdmin.id, "admin", true);
   const session: AuthSession = { user: safeAdmin, token };
   storeAdminSession(session, true);
   return { success: true, session };
@@ -248,4 +271,4 @@ export function getAllUsers(): Omit<UserRecord, "passwordHash">[] {
   return Object.values(db).map(({ passwordHash: _, ...u }) => u);
 }
 
-function delay(ms: number) { return new Promise((r) => setTimeout(r, ms)); }
+function delay(ms: number) { return new Promise(r => setTimeout(r, ms)); }
