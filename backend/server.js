@@ -55,13 +55,8 @@ const authLimiter = rateLimit({
   message: { success: false, message: "Too many auth attempts. Try again in 15 minutes." },
 });
 
-const otpLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max:      5,
-  standardHeaders: true,
-  legacyHeaders:   false,
-  message: { success: false, message: "Too many OTP requests. Try again in 15 minutes." },
-});
+// FIX: removed the duplicate otpLimiter that was defined here but never applied.
+//      The OTP rate limiter is correctly defined and applied inside authRoutes.js.
 
 app.use(globalLimiter);
 

@@ -5,7 +5,8 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useAuth } from "../auth/AuthContext";
-import { tokenStore, authAPI } from "../services/api";
+import { authAPI } from "../services/api";
+import { buildSessionFromToken } from "../auth/authService";
 
 export function AuthCallback() {
   const [params] = useSearchParams();
@@ -13,39 +14,33 @@ export function AuthCallback() {
   const { setSession } = useAuth();
 
   useEffect(() => {
-    const token  = params.get("token");
+    // FIX #1: Backend sends ?code=…&status=… — NOT ?token=…
+    const code   = params.get("code");
     const status = params.get("status"); // "dashboard" | "onboarding"
     const error  = params.get("error");
 
-    if (error || !token) {
+    if (error || !code) {
       navigate("/login?error=google_failed", { replace: true });
       return;
     }
 
-    tokenStore.set(token, true);
+    // FIX #2: Exchange the one-time code for a real JWT via the backend endpoint.
+    //         Previously the code value was incorrectly used directly as a Bearer token.
+    (authAPI.exchangeCode(code) as any)
+      .then(async (exchangeRes: any) => {
+        const token = exchangeRes.data?.token;
+        if (!token) throw new Error("No token in exchange response");
 
-    (authAPI.me() as any).then((res: any) => {
-      const user = res.data?.user;
-      if (!user) throw new Error("No user");
+        // FIX #3: Use the real JWT expiry from the token instead of a hardcoded 30-day value.
+        const session = await buildSessionFromToken(token);
+        setSession(session, false);
 
-      setSession(
-        {
-          user: { ...user, id: user.id },
-          token: {
-            accessToken: token,
-            expiresAt:   Date.now() + 30 * 24 * 60 * 60 * 1000,
-            role:        "user",
-          },
-        },
-        true
-      );
-
-      navigate(status === "dashboard" ? "/dashboard" : "/onboarding", { replace: true });
-    }).catch(() => {
-      tokenStore.clear();
-      navigate("/login?error=session_failed", { replace: true });
-    });
-  }, []);
+        navigate(status === "dashboard" ? "/dashboard" : "/onboarding", { replace: true });
+      })
+      .catch(() => {
+        navigate("/login?error=session_failed", { replace: true });
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="min-h-screen bg-[#F7F9FB] flex items-center justify-center">
@@ -55,8 +50,9 @@ export function AuthCallback() {
         </div>
         <p className="text-sm text-gray-500">Completing sign-in…</p>
         <div className="flex gap-1.5">
-          {[0,1,2].map(i => (
-            <div key={i}
+          {[0, 1, 2].map(i => (
+            <div
+              key={i}
               className="w-2 h-2 rounded-full bg-[#1A5F3D] animate-bounce"
               style={{ animationDelay: `${i * 0.15}s` }}
             />

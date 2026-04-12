@@ -64,7 +64,7 @@ export function AdminLogin() {
           <div className="p-3 rounded-xl bg-gray-50 border border-gray-200 mb-6">
             <p className="text-xs text-gray-500 mb-1 font-semibold">Demo credentials</p>
             <p className="text-xs text-gray-600">Email: <span className="font-mono font-semibold">admin@smartfinance.in</span></p>
-            <p className="text-xs text-gray-600">Password: <span className="font-mono font-semibold">admin2024</span></p>
+            <p className="text-xs text-gray-600">Password: <span className="font-mono font-semibold">Admin2024!</span></p>
           </div>
 
           {error && (

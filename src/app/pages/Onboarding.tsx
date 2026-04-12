@@ -14,6 +14,7 @@ import {
   emptyProfile, saveUserProfile,
 } from "../data/userProfile";
 import { syncProfileToFinancialData } from "../data/syncProfile";
+import { userAPI } from "../services/api";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -163,25 +164,69 @@ export function Onboarding() {
   }
 
   async function handleFinish() {
-    if (!validateStep()) return;
-    setSaving(true);
-    const final: UserProfile = {
-      ...profile,
-      onboardedAt: new Date().toISOString(),
-      updatedAt:   new Date().toISOString(),
-    };
+  if (!validateStep()) return;
+  setSaving(true);
+
+  const final: UserProfile = {
+    ...profile,
+    onboardedAt: new Date().toISOString(),
+    updatedAt:   new Date().toISOString(),
+  };
+
+  try {
+    // ✅ Send data to the backend first
+    await userAPI.onboarding({
+      dob:           final.personal.dob,
+      gender:        final.personal.gender,
+      occupation:    final.personal.occupation,
+      maritalStatus: final.personal.maritalStatus,
+      dependents:    final.personal.dependents,
+      city:          final.personal.city,
+      state:         final.personal.state,
+      country:       final.personal.country,
+      mobile:        final.personal.mobile,
+      income: {
+        monthly:           final.income.monthlyIncome,
+        source:            final.income.incomeSource,
+        additionalMonthly: final.income.additionalIncome,
+        annualGrowthPct:   final.income.salaryGrowthPct,
+      },
+      riskProfile: {
+        tolerance:        final.riskProfile.tolerance,
+        experience:       final.riskProfile.experience,
+        timeHorizonYears: final.riskProfile.timeHorizonYears,
+        investmentStyle:  final.riskProfile.investmentStyle,
+      },
+      expenses:    final.expenses,
+      investments: final.investments,
+      goals:       final.goals,
+      loans:       final.loans,
+    });
+
+    // ✅ Update the auth context so ProtectedRoute sees isProfileComplete = true
+    updateUser({ isProfileComplete: true });
+
+    // Save locally too (for offline access / speed)
     saveUserProfile(final);
     syncProfileToFinancialData(final);
+
     // Clear draft
-    try { localStorage.removeItem(DRAFT_KEY); localStorage.removeItem(DRAFT_KEY + "_step"); } catch { /* ignore */ }
-    // Update auth user name/avatar from profile
+    localStorage.removeItem(DRAFT_KEY);
+    localStorage.removeItem(DRAFT_KEY + "_step");
+
     updateUser({
-      name:   final.personal.fullName || user?.name,
-      phone:  final.personal.mobile,
-      avatar: final.personal.avatarDataUrl,
+      isProfileComplete: true,
+      profilePicture: final.personal.avatarDataUrl,
     });
-    setTimeout(() => navigate("/dashboard", { replace: true }), 600);
+
+    navigate("/dashboard", { replace: true });
+
+  } catch (err: any) {
+    alert(err.message || "Failed to save profile. Please try again.");
+  } finally {
+    setSaving(false);
   }
+}
 
   // ── Step content ──────────────────────────────────────────────────────────
 

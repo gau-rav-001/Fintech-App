@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation } from "react-router";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { useAuth } from "../auth/AuthContext";
@@ -603,8 +603,18 @@ const servicesPageContent = {
   },
 } as const;
 
+// ── Slug helper ───────────────────────────────────────────────────────────────
+export function toSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-");
+}
+
 const servicesMeta = [
   {
+    slug: "investment-planning",
     icon: <Target className="w-8 h-8" />,
     learnMoreUrl: "https://www.investor.gov/introduction-investing",
     accent: "from-emerald-700 to-green-500",
@@ -612,6 +622,7 @@ const servicesMeta = [
     glow: "bg-emerald-300/25",
   },
   {
+    slug: "risk-management",
     icon: <Shield className="w-8 h-8" />,
     learnMoreUrl:
       "https://www.investor.gov/introduction-investing/getting-started/asset-allocation",
@@ -620,6 +631,7 @@ const servicesMeta = [
     glow: "bg-teal-300/25",
   },
   {
+    slug: "portfolio-management",
     icon: <PieChart className="w-8 h-8" />,
     learnMoreUrl:
       "https://www.investor.gov/introduction-investing/investing-basics/glossary/diversification",
@@ -628,6 +640,7 @@ const servicesMeta = [
     glow: "bg-sky-300/25",
   },
   {
+    slug: "wealth-growth",
     icon: <TrendingUp className="w-8 h-8" />,
     learnMoreUrl:
       "https://www.investor.gov/additional-resources/general-resources/publications-research/info-sheets/beginners-guide-asset",
@@ -636,6 +649,7 @@ const servicesMeta = [
     glow: "bg-lime-300/25",
   },
   {
+    slug: "tax-planning",
     icon: <Calculator className="w-8 h-8" />,
     learnMoreUrl:
       "https://www.irs.gov/newsroom/year-round-tax-planning-pointers-for-taxpayers",
@@ -644,6 +658,7 @@ const servicesMeta = [
     glow: "bg-amber-300/25",
   },
   {
+    slug: "expert-guidance",
     icon: <Users className="w-8 h-8" />,
     learnMoreUrl:
       "https://www.investor.gov/introduction-investing/getting-started/working-investment-professional",
@@ -652,6 +667,7 @@ const servicesMeta = [
     glow: "bg-violet-300/25",
   },
   {
+    slug: "retirement-planning",
     icon: <Briefcase className="w-8 h-8" />,
     learnMoreUrl: "https://www.ssa.gov/retirement/plan-for-retirement",
     accent: "from-indigo-700 to-blue-500",
@@ -659,6 +675,7 @@ const servicesMeta = [
     glow: "bg-indigo-300/25",
   },
   {
+    slug: "estate-planning",
     icon: <Award className="w-8 h-8" />,
     learnMoreUrl:
       "https://www.consumerfinance.gov/consumer-tools/managing-someone-elses-money/",
@@ -667,6 +684,7 @@ const servicesMeta = [
     glow: "bg-rose-300/25",
   },
   {
+    slug: "insurance",
     icon: <ShieldCheck className="w-8 h-8" />,
     learnMoreUrl: "/insurance",
     accent: "from-sky-700 to-blue-500",
@@ -679,6 +697,10 @@ const servicesMeta = [
 export function Services() {
   const { language } = useLanguage();
   const { isAuthenticated } = useAuth();
+  const location = useLocation();
+  const [highlightedSlug, setHighlightedSlug] = useState<string | null>(null);
+  const cardsRef = useRef<HTMLDivElement>(null);
+
   const page =
     servicesPageContent[language as keyof typeof servicesPageContent];
 
@@ -686,6 +708,28 @@ export function Services() {
     ...meta,
     ...page.services[index],
   }));
+
+  // ── On mount / hash change: scroll to + highlight the targeted card ────────
+  useEffect(() => {
+    const hash = location.hash.replace("#", "");
+    if (!hash) return;
+
+    setHighlightedSlug(hash);
+
+    // Give the page time to paint, then scroll
+    const timer = setTimeout(() => {
+      const el = document.getElementById(hash);
+      if (el) {
+        const y = el.getBoundingClientRect().top + window.scrollY - 100;
+        window.scrollTo({ top: y, behavior: "smooth" });
+      }
+    }, 120);
+
+    // Remove highlight ring after 2.5 s
+    const clearTimer = setTimeout(() => setHighlightedSlug(null), 2600);
+
+    return () => { clearTimeout(timer); clearTimeout(clearTimer); };
+  }, [location.hash]);
 
   return (
     <div className="min-h-screen bg-[#F7F9FB]">
@@ -736,28 +780,29 @@ export function Services() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-7">
- {mergedServices.map((service, index) => {
-  const isLast = index === mergedServices.length - 1;
-
-  return (
-    <div
-      key={index}
-      className={isLast ? "md:col-span-2 flex justify-center" : ""}
-    >
-      <div className={isLast ? "w-full md:w-[50%]" : "w-full"}>
-        <ServiceFlipCard
-          {...service}
-          index={index}
-          frontDescription={page.frontDescription}
-          tapToExplore={page.tapToExplore}
-          viewDetails={page.viewDetails}
-          learnMoreLabel={page.learnMore}
-        />
-      </div>
-    </div>
-  );
-})}
+          <div className="grid md:grid-cols-2 gap-7" ref={cardsRef}>
+            {mergedServices.map((service, index) => {
+              const isLast = index === mergedServices.length - 1;
+              return (
+                <div
+                  key={index}
+                  id={service.slug}
+                  className={isLast ? "md:col-span-2 flex justify-center" : ""}
+                >
+                  <div className={isLast ? "w-full md:w-[50%]" : "w-full"}>
+                    <ServiceFlipCard
+                      {...service}
+                      index={index}
+                      frontDescription={page.frontDescription}
+                      tapToExplore={page.tapToExplore}
+                      viewDetails={page.viewDetails}
+                      learnMoreLabel={page.learnMore}
+                      highlighted={highlightedSlug === service.slug}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -862,6 +907,7 @@ function ServiceFlipCard({
   viewDetails,
   learnMoreLabel,
   isInternal,
+  highlighted,
 }: {
   icon: React.ReactNode;
   title: string;
@@ -878,6 +924,7 @@ function ServiceFlipCard({
   viewDetails: string;
   learnMoreLabel: string;
   isInternal?: boolean;
+  highlighted?: boolean;
 }) {
   const [flipped, setFlipped] = useState(false);
 
@@ -886,8 +933,17 @@ function ServiceFlipCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, delay: index * 0.08 }}
-      className="group [perspective:1200px]"
+      className="group [perspective:1200px] relative"
     >
+      {/* Animated highlight ring shown when navigated via hash link */}
+      {highlighted && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96 }}
+          animate={{ opacity: [0, 1, 1, 0], scale: [0.96, 1.01, 1.01, 1] }}
+          transition={{ duration: 2.4, times: [0, 0.15, 0.75, 1] }}
+          className="absolute -inset-2 rounded-[34px] bg-gradient-to-br from-[#1A5F3D]/30 to-[#B8E986]/40 blur-sm pointer-events-none z-0"
+        />
+      )}
       <div
         className={`relative h-[340px] w-full cursor-pointer rounded-[28px] transition-transform duration-700 [transform-style:preserve-3d] ${
           flipped ? "[transform:rotateY(180deg)]" : ""

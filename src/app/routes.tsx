@@ -15,6 +15,7 @@ import { AdminLogin }        from "./pages/AdminLogin";
 import { AdminPortal }       from "./pages/AdminPortal";
 import { Onboarding }        from "./pages/Onboarding";
 import { Settings }          from "./pages/Settings";
+import { AuthCallback } from "./pages/AuthCallback";
 import {
   ProtectedRoute, OnboardingRoute, AdminRoute,
   GuestOnlyRoute, AdminGuestRoute,
@@ -57,6 +58,9 @@ export const router = createBrowserRouter([
 
       // ── Onboarding (logged in, not yet onboarded) ──────────────────────────
       { path: "/onboarding", element: <OnboardingRoute><Onboarding /></OnboardingRoute> },
+      
+      // Add this route inside the children array
+      { path: "/auth/callback", Component: AuthCallback },
 
       // ── Protected user routes (checks onboarding first) ───────────────────
       { path: "/dashboard",          element: <ProtectedRoute><Dashboard /></ProtectedRoute> },

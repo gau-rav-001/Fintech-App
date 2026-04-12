@@ -72,9 +72,13 @@ router.post("/onboarding", [
     .isIn(["conservative", "balanced", "aggressive"])
     .withMessage("Investment style must be one of: conservative, balanced, aggressive."),
 
+  // FIX: min changed from 0 to 1 to match the DB CHECK constraint
+  //      (risk_horizon_years > 0). Sending 0 previously passed route
+  //      validation but then caused a DB constraint violation and returned
+  //      a confusing 500 instead of a clean 400.
   body("riskProfile.timeHorizonYears")
     .optional()
-    .isInt({ min: 0, max: 50 }).withMessage("Time horizon must be between 0 and 50 years."),
+    .isInt({ min: 1, max: 50 }).withMessage("Time horizon must be between 1 and 50 years."),
 
   body("expenses")
     .optional()
@@ -97,9 +101,6 @@ router.post("/onboarding", [
 // ── Profile ───────────────────────────────────────────────────────────────────
 router.get("/profile", getProfile);
 
-// ✅ FIX #4: Duplicate router.put("/update") — the original file defined this route TWICE:
-//   once without validation (line ~102) and again with validation AFTER module.exports (dead code).
-//   Merged into a single correct definition WITH validation, BEFORE module.exports.
 router.put("/update", [
   body("fullName").optional().trim().notEmpty().isLength({ max: 255 }),
   body("mobile").optional().matches(/^\+?[\d\s\-]{7,15}$/),
@@ -111,12 +112,24 @@ router.put("/update", [
   body("riskProfile.tolerance").optional().isIn(["low", "medium", "high"]),
   body("riskProfile.investmentStyle").optional()
     .isIn(["conservative", "balanced", "aggressive"]),
+  // FIX: same min:1 guard on the update route
+  body("riskProfile.timeHorizonYears")
+    .optional()
+    .isInt({ min: 1, max: 50 }).withMessage("Time horizon must be between 1 and 50 years."),
 ], validate, updateProfile);
 
 // ── Password ──────────────────────────────────────────────────────────────────
 router.post("/change-password", [
   body("currentPassword").notEmpty().withMessage("Current password is required."),
-  body("newPassword").isLength({ min: 8 }).withMessage("New password must be at least 8 characters."),
+
+  // FIX: apply the same password-strength rules as signup.
+  //      Previously only isLength({ min: 8 }) was checked, allowing users to
+  //      downgrade to a weaker password after account creation.
+  body("newPassword")
+    .isLength({ min: 8 }).withMessage("New password must be at least 8 characters.")
+    .matches(/[A-Z]/).withMessage("New password must contain at least one uppercase letter.")
+    .matches(/[0-9]/).withMessage("New password must contain at least one number.")
+    .matches(/[^A-Za-z0-9]/).withMessage("New password must contain at least one special character."),
 ], validate, changePassword);
 
 // ── Dashboard — requires completed profile ────────────────────────────────────

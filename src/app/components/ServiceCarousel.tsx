@@ -21,6 +21,8 @@ export interface ServiceItem {
   description: string;
   link: string;
   cta: string;
+  /** Optional — if set, the card links to /services#slug instead of link */
+  slug?: string;
 }
 
 interface ServiceCarouselProps {
@@ -33,7 +35,10 @@ interface ServiceCarouselProps {
 
 // ── Card ──────────────────────────────────────────────────────────────────────
 
-function ServiceCard({ icon, title, description, link, cta }: ServiceItem) {
+function ServiceCard({ icon, title, description, link, cta, slug }: ServiceItem) {
+  // If a slug is provided, link to /services#slug (deep-links to that card)
+  // Insurance is a special case → keep its direct /insurance link
+  const href = slug && link !== "/insurance" ? `/services#${slug}` : link;
   return (
     <motion.div
       whileHover={{ y: -8, scale: 1.02 }}
@@ -69,7 +74,7 @@ function ServiceCard({ icon, title, description, link, cta }: ServiceItem) {
 
         {/* CTA */}
         <Link
-          to={link}
+          to={href}
           className="inline-flex items-center gap-1.5 rounded-full bg-[#eef8f2] px-4 py-2 text-sm font-semibold text-[#1A5F3D] transition-all duration-300 group-hover:bg-[#1A5F3D] group-hover:text-white w-fit"
           onClick={(e) => e.stopPropagation()}
         >

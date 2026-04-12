@@ -1,6 +1,19 @@
 const db = require("../config/db");
 
+// FIX: every column is explicitly aliased with the table alias (c.) so that
+// the LEFT JOIN on admins in findAll() does not produce an
+// "ERROR: column reference is ambiguous" crash on shared columns like
+// id, created_at, and updated_at.
 const COLS = `
+  c.id, c.type, c.title, c.description,
+  c.speaker, c.date, c.time, c.duration, c.link, c.status,
+  c.summary, c.source, c.category, c.urgent, c.published_at,
+  c.youtube_url, c.thumbnail,
+  c.created_by, c.is_published, c.created_at, c.updated_at
+`;
+
+// Plain column list for single-table queries (no alias needed)
+const COLS_PLAIN = `
   id, type, title, description,
   speaker, date, time, duration, link, status,
   summary, source, category, urgent, published_at,
@@ -41,7 +54,7 @@ async function findPublic(type) {
   if (type) { where += " AND type = $1"; params.push(type); }
 
   const { rows } = await db.query(
-    `SELECT ${COLS} FROM content ${where} ORDER BY created_at DESC LIMIT 50`,
+    `SELECT ${COLS_PLAIN} FROM content ${where} ORDER BY created_at DESC LIMIT 50`,
     params
   );
   return rows.map(formatContent);
@@ -50,10 +63,12 @@ async function findPublic(type) {
 async function findAll(type) {
   const params = [];
   let where = "";
-  if (type) { where = "WHERE type = $1"; params.push(type); }
+  if (type) { where = "WHERE c.type = $1"; params.push(type); }
 
+  // FIX: use COLS (with c. aliases) so that id/created_at/updated_at from the
+  //      admins JOIN don't collide with content's own columns.
   const { rows } = await db.query(
-    `SELECT c.${COLS.trim()}, a.full_name AS creator_name, a.email AS creator_email
+    `SELECT ${COLS}, a.full_name AS creator_name, a.email AS creator_email
      FROM content c
      LEFT JOIN admins a ON a.id = c.created_by
      ${where}
@@ -78,7 +93,7 @@ async function create(data, adminId) {
         summary, source, category, urgent, published_at, youtube_url, thumbnail,
         created_by, is_published)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
-     RETURNING ${COLS}`,
+     RETURNING ${COLS_PLAIN}`,
     [
       type, title, description, speaker, date, time, duration, link, status,
       summary, source, category, urgent, publishedAt || new Date(), youtubeUrl, thumbnail,
@@ -107,7 +122,7 @@ async function update(id, data) {
 
   values.push(id);
   const { rows } = await db.query(
-    `UPDATE content SET ${sets.join(", ")} WHERE id = $${idx} RETURNING ${COLS}`,
+    `UPDATE content SET ${sets.join(", ")} WHERE id = $${idx} RETURNING ${COLS_PLAIN}`,
     values
   );
   return formatContent(rows[0]);
@@ -119,7 +134,9 @@ async function remove(id) {
 }
 
 async function findById(id) {
-  const { rows } = await db.query(`SELECT ${COLS} FROM content WHERE id = $1`, [id]);
+  const { rows } = await db.query(
+    `SELECT ${COLS_PLAIN} FROM content WHERE id = $1`, [id]
+  );
   return formatContent(rows[0]);
 }
 

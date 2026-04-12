@@ -1,6 +1,10 @@
+// Frontend/src/app/pages/Signup.tsx
+// ✅ FIX: After registerUser() succeeds, the backend has sent an OTP email.
+//         We now navigate to /login?verify=1&email=... so the Login page's
+//         OTP step picks up and the user verifies before being admitted.
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
+import { Mail, Lock, User, Phone, ArrowRight, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { registerUser, validateEmail, validatePassword } from "../auth/authService";
 
@@ -15,12 +19,12 @@ function Spinner() {
 
 function PasswordStrength({ password }: { password: string }) {
   const checks = [
-    { label: "8+ characters", pass: password.length >= 8 },
-    { label: "Uppercase letter", pass: /[A-Z]/.test(password) },
-    { label: "Number", pass: /\d/.test(password) },
+    { label: "8+ characters",     pass: password.length >= 8 },
+    { label: "Uppercase letter",  pass: /[A-Z]/.test(password) },
+    { label: "Number",            pass: /\d/.test(password) },
     { label: "Special character", pass: /[^A-Za-z0-9]/.test(password) },
   ];
-  const score = checks.filter((c) => c.pass).length;
+  const score  = checks.filter((c) => c.pass).length;
   const labels = ["", "Weak", "Fair", "Good", "Strong"];
   const colors = ["", "bg-red-400", "bg-amber-400", "bg-blue-400", "bg-[#1A5F3D]"];
 
@@ -30,11 +34,8 @@ function PasswordStrength({ password }: { password: string }) {
     <div className="mt-2">
       <div className="flex gap-1 mb-1.5">
         {[1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            className={`h-1 flex-1 rounded-full transition-all duration-300 ${
-              i <= score ? colors[score] : "bg-gray-200"
-            }`}
+          <div key={i}
+            className={`h-1 flex-1 rounded-full transition-all duration-300 ${i <= score ? colors[score] : "bg-gray-200"}`}
           />
         ))}
       </div>
@@ -56,14 +57,13 @@ export function Signup() {
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    name: "", email: "", phone: "", password: "", confirmPassword: "",
+    fullName: "", email: "", phone: "", password: "", confirmPassword: "",
   });
   const [showPw,  setShowPw]  = useState(false);
   const [showCPw, setShowCPw] = useState(false);
   const [agreed,  setAgreed]  = useState(false);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
 
   const [errs, setErrs] = useState<Record<string, string | null>>({});
 
@@ -75,14 +75,15 @@ export function Signup() {
 
   function validate(): boolean {
     const next: Record<string, string | null> = {};
-    if (!formData.name.trim()) next.name = "Full name is required.";
+    if (!formData.fullName.trim())      next.fullName = "Full name is required.";
     next.email    = validateEmail(formData.email);
     next.password = validatePassword(formData.password);
-    if (!formData.phone.trim()) next.phone = "Phone number is required.";
-    else if (!/^[+\d][\d\s\-()]{7,}$/.test(formData.phone)) next.phone = "Enter a valid phone number.";
+    if (!formData.phone.trim())         next.phone = "Phone number is required.";
+    else if (!/^[+\d][\d\s\-()]{7,}$/.test(formData.phone))
+                                        next.phone = "Enter a valid phone number.";
     if (formData.password !== formData.confirmPassword)
       next.confirmPassword = "Passwords do not match.";
-    if (!agreed) next.agree = "You must accept the terms to continue.";
+    if (!agreed)                        next.agree = "You must accept the terms to continue.";
     setErrs(next);
     return !Object.values(next).some(Boolean);
   }
@@ -95,17 +96,24 @@ export function Signup() {
     setError(null);
     try {
       const result = await registerUser(
-        formData.name,
+        formData.fullName,   // ✅ FIX: was "name" — now matches updated authService signature
         formData.email,
         formData.phone,
-        formData.password
+        formData.password,
       );
+
       if (!result.success) {
         setError(result.error ?? "Registration failed. Please try again.");
-      } else {
-        setSuccess(true);
-        setTimeout(() => navigate("/login"), 2000);
+        return;
       }
+
+      // ✅ FIX: backend sent an OTP email — redirect to login OTP step.
+      //         We pass verify=1 and email so the Login page knows to show
+      //         the OTP screen immediately, with the correct email pre-filled.
+      navigate(
+        `/login?verify=1&email=${encodeURIComponent(formData.email)}`,
+        { replace: true }
+      );
     } finally {
       setLoading(false);
     }
@@ -136,7 +144,6 @@ export function Signup() {
             </Link>
           </div>
 
-          {/* Status banners */}
           <AnimatePresence>
             {error && (
               <motion.div key="err"
@@ -147,33 +154,22 @@ export function Signup() {
                 <p className="text-sm text-red-700">{error}</p>
               </motion.div>
             )}
-            {success && (
-              <motion.div key="ok"
-                initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                className="flex items-center gap-3 mb-6 p-4 rounded-xl bg-green-50 border border-green-200"
-              >
-                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                <p className="text-sm text-green-700 font-semibold">
-                  Account created! Redirecting to login…
-                </p>
-              </motion.div>
-            )}
           </AnimatePresence>
 
           <h2 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h2>
           <p className="text-gray-600 mb-8">Start your financial journey today</p>
 
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-            {/* Name */}
+            {/* Full Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
               <div className="relative">
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input type="text" value={formData.name}
-                  onChange={(e) => set("name", e.target.value)}
-                  className={inputCls("name")} placeholder="Rahul Sharma" autoComplete="name" />
+                <input type="text" value={formData.fullName}
+                  onChange={(e) => set("fullName", e.target.value)}
+                  className={inputCls("fullName")} placeholder="Rahul Sharma" autoComplete="name" />
               </div>
-              {errs.name && <p className="mt-1.5 text-xs text-red-500">{errs.name}</p>}
+              {errs.fullName && <p className="mt-1.5 text-xs text-red-500">{errs.fullName}</p>}
             </div>
 
             {/* Email */}
@@ -236,7 +232,8 @@ export function Signup() {
             {/* Terms */}
             <div>
               <label className="flex items-start gap-2 cursor-pointer">
-                <input type="checkbox" checked={agreed} onChange={(e) => { setAgreed(e.target.checked); setErrs((p) => ({ ...p, agree: null })); }}
+                <input type="checkbox" checked={agreed}
+                  onChange={(e) => { setAgreed(e.target.checked); setErrs((p) => ({ ...p, agree: null })); }}
                   className="w-4 h-4 text-[#1A5F3D] border-gray-300 rounded focus:ring-[#1A5F3D] mt-1" />
                 <span className="text-sm text-gray-600">
                   I agree to the{" "}
@@ -250,7 +247,9 @@ export function Signup() {
 
             <button type="submit" disabled={loading}
               className="w-full py-3 bg-gradient-to-r from-[#1A5F3D] to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100">
-              {loading ? <><Spinner /> Creating account…</> : <>Create Account <ArrowRight className="w-5 h-5" /></>}
+              {loading
+                ? <><Spinner /> Creating account…</>
+                : <>Create Account <ArrowRight className="w-5 h-5" /></>}
             </button>
           </form>
 
@@ -262,7 +261,7 @@ export function Signup() {
           </div>
         </motion.div>
 
-        {/* ── Right — Branding (unchanged) ── */}
+        {/* ── Right — Branding ── */}
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}

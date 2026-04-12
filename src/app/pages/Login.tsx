@@ -1,5 +1,6 @@
+// Frontend/src/app/pages/Login.tsx
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import {
   Mail, Lock, ArrowRight, Eye, EyeOff,
   RefreshCw, ShieldCheck, AlertCircle, CheckCircle,
@@ -18,45 +19,47 @@ import {
 } from "../auth/authService";
 import { hasCompletedOnboarding } from "../data/userProfile";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 type LoginPhase = "credentials" | "otp" | "success";
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-
 export function Login() {
-  const navigate  = useNavigate();
-  const location  = useLocation();
+  const navigate      = useNavigate();
+  const location      = useLocation();
+  const [searchParams] = useSearchParams();        // ✅ FIX: read post-signup params
   const { setSession } = useAuth();
 
   const from = (location.state as { from?: string })?.from ?? "/dashboard";
 
-  // ── Form state ──
-  const [email,     setEmail]     = useState("");
-  const [password,  setPassword]  = useState("");
-  const [showPw,    setShowPw]    = useState(false);
-  const [remember,  setRemember]  = useState(false);
-  const [otp,       setOTP]       = useState(["", "", "", "", "", ""]);
+  const [email,     setEmail]    = useState("");
+  const [password,  setPassword] = useState("");
+  const [showPw,    setShowPw]   = useState(false);
+  const [remember,  setRemember] = useState(false);
+  const [otp,       setOTP]      = useState(["", "", "", "", "", ""]);
 
-  // ── UI state ──
-  const [phase,     setPhase]     = useState<LoginPhase>("credentials");
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState<string | null>(null);
-  const [success,   setSuccess]   = useState<string | null>(null);
+  const [phase,      setPhase]      = useState<LoginPhase>("credentials");
+  const [loading,    setLoading]    = useState(false);
+  const [error,      setError]      = useState<string | null>(null);
+  const [success,    setSuccess]    = useState<string | null>(null);
   const [forgotMode, setForgotMode] = useState(false);
-  const [otpError,  setOtpError]  = useState<string | null>(null);
+  const [otpError,   setOtpError]   = useState<string | null>(null);
 
-  // ── Field-level validation errors ──
-  const [emailErr, setEmailErr]   = useState<string | null>(null);
-  const [pwErr,    setPwErr]      = useState<string | null>(null);
+  const [emailErr, setEmailErr] = useState<string | null>(null);
+  const [pwErr,    setPwErr]    = useState<string | null>(null);
 
-  // ── OTP resend cooldown ──
   const [resendCooldown, setResendCooldown] = useState(0);
-  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cooldownRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const otpInputRefs  = useRef<(HTMLInputElement | null)[]>([]);
 
-  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  // ✅ FIX: if coming from Signup page after registration, jump straight to OTP step
+  useEffect(() => {
+    const preEmail = searchParams.get("email");
+    const verify   = searchParams.get("verify");
+    if (verify === "1" && preEmail) {
+      setEmail(preEmail);
+      setSuccess(`Account created! OTP sent to ${preEmail}. Check your inbox.`);
+      setTimeout(() => { setSuccess(null); setPhase("otp"); }, 2000);
+    }
+  }, []);
 
-  // ── Auto-focus first OTP box when phase switches ──
   useEffect(() => {
     if (phase === "otp") {
       setTimeout(() => otpInputRefs.current[0]?.focus(), 80);
@@ -64,7 +67,6 @@ export function Login() {
     }
   }, [phase]);
 
-  // ── Cleanup cooldown timer ──
   useEffect(() => () => { if (cooldownRef.current) clearInterval(cooldownRef.current); }, []);
 
   function startCooldown() {
@@ -77,23 +79,19 @@ export function Login() {
     }, 1000);
   }
 
-  // ── Redirect on success ──
   function handleSessionReady(session: AuthSession) {
     setSession(session, remember);
     setPhase("success");
-    // If user has never onboarded, send them to onboarding; else go to intended page
     const destination = hasCompletedOnboarding(session.user.id)
       ? (from === "/login" ? "/dashboard" : from)
       : "/onboarding";
     setTimeout(() => navigate(destination, { replace: true }), 1000);
   }
 
-  // ─── Step 1: Credential submit ────────────────────────────────────────────
-
+  // ── Step 1: Credentials ───────────────────────────────────────────────────
   async function handleCredentialSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-
     const eErr = validateEmail(email);
     const pErr = validatePassword(password);
     setEmailErr(eErr);
@@ -106,8 +104,7 @@ export function Login() {
       if (!result.success) {
         setError(result.error ?? "Login failed. Please try again.");
       } else {
-        // OTP sent — show banner then switch phase
-        setSuccess(`OTP sent to ${email}. Check your inbox (see browser console for demo OTP).`);
+        setSuccess(`OTP sent to ${email}. Check your inbox.`);
         setTimeout(() => { setSuccess(null); setPhase("otp"); }, 2000);
       }
     } finally {
@@ -115,10 +112,9 @@ export function Login() {
     }
   }
 
-  // ─── Step 2: OTP input handlers ───────────────────────────────────────────
-
+  // ── Step 2: OTP ───────────────────────────────────────────────────────────
   function handleOTPChange(index: number, val: string) {
-    if (!/^\d*$/.test(val)) return; // digits only
+    if (!/^\d*$/.test(val)) return;
     const next = [...otp];
     next[index] = val.slice(-1);
     setOTP(next);
@@ -127,19 +123,15 @@ export function Login() {
   }
 
   function handleOTPKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Backspace" && !otp[index] && index > 0) {
+    if (e.key === "Backspace" && !otp[index] && index > 0)
       otpInputRefs.current[index - 1]?.focus();
-    }
-    if (e.key === "ArrowLeft" && index > 0) otpInputRefs.current[index - 1]?.focus();
+    if (e.key === "ArrowLeft"  && index > 0) otpInputRefs.current[index - 1]?.focus();
     if (e.key === "ArrowRight" && index < 5) otpInputRefs.current[index + 1]?.focus();
   }
 
   function handleOTPPaste(e: React.ClipboardEvent) {
     const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-    if (pasted.length === 6) {
-      setOTP(pasted.split(""));
-      otpInputRefs.current[5]?.focus();
-    }
+    if (pasted.length === 6) { setOTP(pasted.split("")); otpInputRefs.current[5]?.focus(); }
   }
 
   async function handleOTPSubmit(e: React.FormEvent) {
@@ -147,7 +139,6 @@ export function Login() {
     const code = otp.join("");
     const err  = validateOTP(code);
     if (err) { setOtpError(err); return; }
-
     setLoading(true);
     setOtpError(null);
     try {
@@ -170,7 +161,7 @@ export function Login() {
     setOtpError(null);
     try {
       await resendOTP(email);
-      setSuccess("New OTP sent! Check the browser console for the demo code.");
+      setSuccess("New OTP sent! Check your email inbox.");
       setTimeout(() => setSuccess(null), 3000);
       startCooldown();
     } finally {
@@ -178,42 +169,30 @@ export function Login() {
     }
   }
 
-  // ─── Google Sign-In ────────────────────────────────────────────────────────
-
-  async function handleGoogleLogin() {
+  // ── Google Sign-In ────────────────────────────────────────────────────────
+  // ✅ FIX: loginWithGoogle() now does window.location.href redirect — it
+  //         does NOT return a value. Removed the old await + result pattern
+  //         that was crashing with "Cannot read properties of undefined".
+  function handleGoogleLogin() {
     setLoading(true);
     setError(null);
-    try {
-      const result = await loginWithGoogle();
-      if (!result.success) {
-        setError(result.error ?? "Google sign-in failed.");
-      } else if (result.session) {
-        handleSessionReady(result.session);
-      }
-    } finally {
-      setLoading(false);
-    }
+    loginWithGoogle(); // redirects browser — page navigation takes over
+    // setLoading(false) is intentionally omitted: page will navigate away
   }
-
-  // ─── Field blur validation ─────────────────────────────────────────────────
 
   const inputCls = (hasError: boolean) =>
     `w-full pl-12 pr-4 py-3 border ${
       hasError ? "border-red-400 focus:ring-red-300" : "border-gray-300 focus:ring-[#1A5F3D]"
     } rounded-xl focus:ring-2 focus:border-transparent outline-none transition-all`;
 
-  // ─── Render ────────────────────────────────────────────────────────────────
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#F7F9FB] via-white to-[#F7F9FB] flex items-center justify-center p-4">
       <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center">
 
-        {/* ── Left — Branding (unchanged) ── */}
+        {/* ── Left — Branding ── */}
         <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6 }}
-          className="hidden lg:block"
+          initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6 }} className="hidden lg:block"
         >
           <Link to="/" className="inline-flex items-center space-x-2 mb-8">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center">
@@ -223,9 +202,7 @@ export function Login() {
           </Link>
 
           <h1 className="text-5xl font-bold text-gray-900 mb-6">Welcome Back!</h1>
-          <p className="text-xl text-gray-600 mb-8">
-            Continue your journey towards financial freedom
-          </p>
+          <p className="text-xl text-gray-600 mb-8">Continue your journey towards financial freedom</p>
 
           <div className="space-y-4">
             <FeatureItem text="Track your investments in real-time" />
@@ -233,23 +210,20 @@ export function Login() {
             <FeatureItem text="Manage your portfolio efficiently" />
           </div>
 
-          {/* Demo credentials hint */}
           <div className="mt-10 p-4 rounded-2xl border border-[#d7eadf] bg-[#f3faf6]">
             <p className="text-xs font-semibold text-[#1A5F3D] mb-1">🔑 Demo Account</p>
             <p className="text-xs text-gray-600">Email: <span className="font-mono font-semibold">demo@smartfinance.in</span></p>
             <p className="text-xs text-gray-600">Password: <span className="font-mono font-semibold">demo1234</span></p>
-            <p className="text-xs text-gray-500 mt-1">OTP will appear in browser console (F12)</p>
+            <p className="text-xs text-gray-500 mt-1">OTP will be sent to your registered email</p>
           </div>
         </motion.div>
 
         {/* ── Right — Auth Card ── */}
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
+          initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
           className="bg-white rounded-3xl shadow-2xl p-8 md:p-12"
         >
-          {/* Mobile logo */}
           <div className="lg:hidden mb-8">
             <Link to="/" className="inline-flex items-center space-x-2">
               <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center">
@@ -259,7 +233,6 @@ export function Login() {
             </Link>
           </div>
 
-          {/* ── Inline status banners ── */}
           <AnimatePresence>
             {error && (
               <motion.div key="err"
@@ -281,10 +254,8 @@ export function Login() {
             )}
           </AnimatePresence>
 
-          {/* ════════════════════════════════════════
-              PHASE: CREDENTIALS
-          ════════════════════════════════════════ */}
           <AnimatePresence mode="wait">
+            {/* ── Phase: Credentials ── */}
             {phase === "credentials" && (
               <motion.div key="creds"
                 initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
@@ -293,18 +264,13 @@ export function Login() {
                 <h2 className="text-3xl font-bold text-gray-900 mb-2">Sign In</h2>
                 <p className="text-gray-600 mb-8">Enter your credentials to access your account</p>
 
-                {/* Google Sign-In */}
-                <button
-                  type="button"
-                  onClick={handleGoogleLogin}
-                  disabled={loading}
+                <button type="button" onClick={handleGoogleLogin} disabled={loading}
                   className="w-full flex items-center justify-center gap-3 py-3 border-2 border-gray-200 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all mb-6 disabled:opacity-60"
                 >
                   <GoogleIcon />
                   {loading ? "Connecting…" : "Continue with Google"}
                 </button>
 
-                {/* Divider */}
                 <div className="relative flex items-center gap-3 mb-6">
                   <div className="flex-1 h-px bg-gray-200" />
                   <span className="text-xs text-gray-400 font-medium">or sign in with email</span>
@@ -312,70 +278,42 @@ export function Login() {
                 </div>
 
                 <form onSubmit={handleCredentialSubmit} className="space-y-6" noValidate>
-                  {/* Email */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email Address
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                     <div className="relative">
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <input
-                        type="email"
-                        value={email}
+                      <input type="email" value={email}
                         onChange={(e) => { setEmail(e.target.value); setEmailErr(null); setError(null); }}
                         onBlur={() => setEmailErr(validateEmail(email))}
-                        className={inputCls(!!emailErr)}
-                        placeholder="you@example.com"
-                        autoComplete="email"
-                      />
+                        className={inputCls(!!emailErr)} placeholder="you@example.com" autoComplete="email" />
                     </div>
                     {emailErr && <p className="mt-1.5 text-xs text-red-500">{emailErr}</p>}
                   </div>
 
-                  {/* Password */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Password
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
                     <div className="relative">
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <input
-                        type={showPw ? "text" : "password"}
-                        value={password}
+                      <input type={showPw ? "text" : "password"} value={password}
                         onChange={(e) => { setPassword(e.target.value); setPwErr(null); setError(null); }}
                         onBlur={() => setPwErr(validatePassword(password))}
-                        className={`${inputCls(!!pwErr)} pr-12`}
-                        placeholder="••••••••"
-                        autoComplete="current-password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPw((v) => !v)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                        tabIndex={-1}
-                      >
+                        className={`${inputCls(!!pwErr)} pr-12`} placeholder="••••••••" autoComplete="current-password" />
+                      <button type="button" onClick={() => setShowPw((v) => !v)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors" tabIndex={-1}>
                         {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
                     {pwErr && <p className="mt-1.5 text-xs text-red-500">{pwErr}</p>}
                   </div>
 
-                  {/* Remember + Forgot */}
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={remember}
-                        onChange={(e) => setRemember(e.target.checked)}
-                        className="w-4 h-4 text-[#1A5F3D] border-gray-300 rounded focus:ring-[#1A5F3D]"
-                      />
+                      <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)}
+                        className="w-4 h-4 text-[#1A5F3D] border-gray-300 rounded focus:ring-[#1A5F3D]" />
                       <span className="text-sm text-gray-600">Remember me</span>
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setForgotMode(v => !v)}
-                      className="text-sm text-[#1A5F3D] hover:underline"
-                    >
+                    <button type="button" onClick={() => setForgotMode(v => !v)}
+                      className="text-sm text-[#1A5F3D] hover:underline">
                       Forgot password?
                     </button>
                   </div>
@@ -383,43 +321,22 @@ export function Login() {
                   {forgotMode && (
                     <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-800">
                       <p className="font-semibold mb-1">Reset your password</p>
-                      <p>Please contact support at <span className="font-mono font-semibold">support@smartfinance.in</span> with your registered email and we'll send you a reset link within 24 hours.</p>
-                      <button
-                        type="button"
-                        onClick={() => setForgotMode(false)}
-                        className="mt-2 text-xs text-blue-600 hover:underline"
-                      >
-                        Close
-                      </button>
+                      <p>Contact <span className="font-mono font-semibold">support@smartfinance.in</span> with your registered email and we'll send a reset link within 24 hours.</p>
+                      <button type="button" onClick={() => setForgotMode(false)}
+                        className="mt-2 text-xs text-blue-600 hover:underline">Close</button>
                     </div>
                   )}
 
-                  {/* Submit */}
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-3 bg-gradient-to-r from-[#1A5F3D] to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100"
-                  >
-                    {loading ? (
-                      <>
-                        <Spinner />
-                        Verifying…
-                      </>
-                    ) : (
-                      <>
-                        Send OTP
-                        <ArrowRight className="w-5 h-5" />
-                      </>
-                    )}
+                  <button type="submit" disabled={loading}
+                    className="w-full py-3 bg-gradient-to-r from-[#1A5F3D] to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100">
+                    {loading ? <><Spinner /> Verifying…</> : <>Send OTP <ArrowRight className="w-5 h-5" /></>}
                   </button>
                 </form>
 
                 <div className="mt-6 text-center">
                   <p className="text-gray-600">
                     Don't have an account?{" "}
-                    <Link to="/signup" className="text-[#1A5F3D] font-semibold hover:underline">
-                      Sign up
-                    </Link>
+                    <Link to="/signup" className="text-[#1A5F3D] font-semibold hover:underline">Sign up</Link>
                   </p>
                 </div>
 
@@ -431,44 +348,28 @@ export function Login() {
               </motion.div>
             )}
 
-            {/* ════════════════════════════════════════
-                PHASE: OTP
-            ════════════════════════════════════════ */}
+            {/* ── Phase: OTP ── */}
             {phase === "otp" && (
               <motion.div key="otp"
                 initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25 }}
               >
-                {/* Shield badge */}
                 <div className="flex items-center justify-center mb-6">
                   <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center shadow-lg">
                     <ShieldCheck className="w-8 h-8 text-white" />
                   </div>
                 </div>
-
-                <h2 className="text-3xl font-bold text-gray-900 mb-2 text-center">
-                  Verify Your Identity
-                </h2>
-                <p className="text-gray-600 mb-2 text-center">
-                  We've sent a 6-digit OTP to
-                </p>
+                <h2 className="text-3xl font-bold text-gray-900 mb-2 text-center">Verify Your Identity</h2>
+                <p className="text-gray-600 mb-2 text-center">We've sent a 6-digit OTP to</p>
                 <p className="text-center font-semibold text-[#1A5F3D] mb-8">{email}</p>
 
                 <form onSubmit={handleOTPSubmit} className="space-y-6">
-                  {/* 6-box OTP input */}
                   <div>
-                    <div
-                      className="flex gap-3 justify-center"
-                      onPaste={handleOTPPaste}
-                    >
+                    <div className="flex gap-3 justify-center" onPaste={handleOTPPaste}>
                       {otp.map((digit, i) => (
-                        <input
-                          key={i}
+                        <input key={i}
                           ref={(el) => { otpInputRefs.current[i] = el; }}
-                          type="text"
-                          inputMode="numeric"
-                          maxLength={1}
-                          value={digit}
+                          type="text" inputMode="numeric" maxLength={1} value={digit}
                           onChange={(e) => handleOTPChange(i, e.target.value)}
                           onKeyDown={(e) => handleOTPKeyDown(i, e)}
                           className={`w-12 h-14 text-center text-xl font-bold border-2 rounded-xl outline-none transition-all ${
@@ -483,58 +384,37 @@ export function Login() {
                     </div>
                     {otpError && (
                       <p className="mt-3 text-center text-sm text-red-500 flex items-center justify-center gap-1.5">
-                        <AlertCircle className="w-3.5 h-3.5" />
-                        {otpError}
+                        <AlertCircle className="w-3.5 h-3.5" /> {otpError}
                       </p>
                     )}
                   </div>
 
-                  {/* OTP expires note */}
-                  <p className="text-center text-xs text-gray-400">
-                    OTP expires in 5 minutes
-                  </p>
+                  <p className="text-center text-xs text-gray-400">OTP expires in 5 minutes</p>
 
-                  {/* Verify button */}
-                  <button
-                    type="submit"
-                    disabled={loading || otp.join("").length < 6}
-                    className="w-full py-3 bg-gradient-to-r from-[#1A5F3D] to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100"
-                  >
-                    {loading ? (
-                      <><Spinner /> Verifying…</>
-                    ) : (
-                      <><ShieldCheck className="w-5 h-5" /> Verify &amp; Sign In</>
-                    )}
+                  <button type="submit" disabled={loading || otp.join("").length < 6}
+                    className="w-full py-3 bg-gradient-to-r from-[#1A5F3D] to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100">
+                    {loading ? <><Spinner /> Verifying…</> : <><ShieldCheck className="w-5 h-5" /> Verify &amp; Sign In</>}
                   </button>
 
-                  {/* Resend */}
-                  <div className="flex items-center justify-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleResendOTP}
+                  <div className="flex items-center justify-center">
+                    <button type="button" onClick={handleResendOTP}
                       disabled={loading || resendCooldown > 0}
-                      className="flex items-center gap-1.5 text-sm text-[#1A5F3D] hover:underline disabled:text-gray-400 disabled:no-underline transition-colors"
-                    >
+                      className="flex items-center gap-1.5 text-sm text-[#1A5F3D] hover:underline disabled:text-gray-400 disabled:no-underline transition-colors">
                       <RefreshCw className="w-3.5 h-3.5" />
                       {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
                     </button>
                   </div>
 
-                  {/* Back */}
-                  <button
-                    type="button"
+                  <button type="button"
                     onClick={() => { setPhase("credentials"); setOTP(["","","","","",""]); setOtpError(null); }}
-                    className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors"
-                  >
+                    className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors">
                     ← Back to login
                   </button>
                 </form>
               </motion.div>
             )}
 
-            {/* ════════════════════════════════════════
-                PHASE: SUCCESS
-            ════════════════════════════════════════ */}
+            {/* ── Phase: Success ── */}
             {phase === "success" && (
               <motion.div key="success"
                 initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
@@ -547,24 +427,18 @@ export function Login() {
                 <p className="text-gray-600">Redirecting to your dashboard…</p>
                 <div className="mt-6 flex justify-center gap-1.5">
                   {[0, 1, 2].map((i) => (
-                    <div
-                      key={i}
-                      className="w-2 h-2 rounded-full bg-[#1A5F3D] animate-bounce"
-                      style={{ animationDelay: `${i * 0.15}s` }}
-                    />
+                    <div key={i} className="w-2 h-2 rounded-full bg-[#1A5F3D] animate-bounce"
+                      style={{ animationDelay: `${i * 0.15}s` }} />
                   ))}
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
         </motion.div>
-
       </div>
     </div>
   );
 }
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function FeatureItem({ text }: { text: string }) {
   return (
@@ -579,14 +453,9 @@ function FeatureItem({ text }: { text: string }) {
 
 function Spinner() {
   return (
-    <svg
-      className="animate-spin w-4 h-4 text-white"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
+    <svg className="animate-spin w-4 h-4 text-white" fill="none" viewBox="0 0 24 24">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
   );
 }

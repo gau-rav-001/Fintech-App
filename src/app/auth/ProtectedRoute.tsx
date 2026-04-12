@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router";
 import { useAuth, useAdminAuth } from "./AuthContext";
-import { hasCompletedOnboarding } from "../data/userProfile";
+
 
 // ── Loading spinner ───────────────────────────────────────────────────────────
 function LoadingScreen() {
@@ -23,16 +23,18 @@ function LoadingScreen() {
 }
 
 // ── User protected route (checks auth + onboarding) ──────────────────────────
+
+
 export function ProtectedRoute({ children, redirectTo = "/login" }: {
   children: ReactNode; redirectTo?: string;
 }) {
-  const { isAuthenticated, isAdmin, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const location = useLocation();
   if (isLoading) return <LoadingScreen />;
   if (!isAuthenticated) return <Navigate to={redirectTo} state={{ from: location.pathname }} replace />;
 
-  // If user hasn't completed onboarding, send them there (not for demo/admin)
-  if (user && user.role !== "admin" && !hasCompletedOnboarding(user.id)) {
+  // Use the flag from the server — works on all devices
+  if (user && user.role !== "admin" && !user.isProfileComplete) {
     return <Navigate to="/onboarding" replace />;
   }
 
@@ -45,8 +47,7 @@ export function OnboardingRoute({ children }: { children: ReactNode }) {
   const location = useLocation();
   if (isLoading) return <LoadingScreen />;
   if (!isAuthenticated) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
-  // If already onboarded, go to dashboard
-  if (user && hasCompletedOnboarding(user.id)) return <Navigate to="/dashboard" replace />;
+  if (user?.isProfileComplete) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 

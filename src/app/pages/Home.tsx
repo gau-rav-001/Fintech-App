@@ -3,7 +3,6 @@ import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { useAuth } from "../auth/AuthContext";
 import { ServiceCarousel, type ServiceItem } from "../components/ServiceCarousel";
-import Testimonials from "./Testimonials";
 import {
   TrendingUp,
   Shield,
@@ -210,6 +209,7 @@ export function Home() {
           speed={0.5}
           services={[
             {
+              slug: "investment-planning",
               icon: <Target className="w-7 h-7" />,
               title: home.serviceInvestmentPlanning,
               description: home.serviceInvestmentPlanningDesc,
@@ -217,6 +217,7 @@ export function Home() {
               cta: home.learnMore,
             },
             {
+              slug: "risk-management",
               icon: <Shield className="w-7 h-7" />,
               title: home.serviceRiskManagement,
               description: home.serviceRiskManagementDesc,
@@ -224,6 +225,7 @@ export function Home() {
               cta: home.learnMore,
             },
             {
+              slug: "portfolio-management",
               icon: <PieChart className="w-7 h-7" />,
               title: home.servicePortfolioManagement,
               description: home.servicePortfolioManagementDesc,
@@ -231,6 +233,7 @@ export function Home() {
               cta: home.learnMore,
             },
             {
+              slug: "wealth-growth",
               icon: <TrendingUp className="w-7 h-7" />,
               title: home.serviceWealthGrowth,
               description: home.serviceWealthGrowthDesc,
@@ -238,6 +241,7 @@ export function Home() {
               cta: home.learnMore,
             },
             {
+              slug: "tax-planning",
               icon: <Calculator className="w-7 h-7" />,
               title: home.serviceTaxPlanning,
               description: home.serviceTaxPlanningDesc,
@@ -245,6 +249,7 @@ export function Home() {
               cta: home.learnMore,
             },
             {
+              slug: "expert-guidance",
               icon: <Users className="w-7 h-7" />,
               title: home.serviceExpertGuidance,
               description: home.serviceExpertGuidanceDesc,
@@ -252,6 +257,7 @@ export function Home() {
               cta: home.learnMore,
             },
             {
+              slug: "retirement-planning",
               icon: <Briefcase className="w-7 h-7" />,
               title: "Retirement Planning",
               description: "Secure your golden years with personalised corpus plans, pension strategy, and healthcare coverage.",
@@ -259,6 +265,7 @@ export function Home() {
               cta: home.learnMore,
             },
             {
+              slug: "insurance",
               icon: <ShieldCheck className="w-7 h-7" />,
               title: "Insurance",
               description: "Health, life, vehicle, home and business — comprehensive coverage starting at ₹299/month.",
@@ -443,9 +450,6 @@ export function Home() {
           </div>
         </div>
       </section>
-
-     {/* Testimonials Section */}
-        <Testimonials />
 
       {/* WhatsApp CTA */}
       <section className="relative py-16 overflow-hidden bg-[linear-gradient(135deg,#0c1f17_0%,#123d2a_40%,#1A5F3D_70%,#2D7A4E_100%)]">

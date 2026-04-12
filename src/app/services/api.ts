@@ -1,15 +1,30 @@
 // ── SmartFinance API client ────────────────────────────────────────────────────
 // Place at:  src/app/services/api.ts
-// Add to frontend .env:  VITE_API_URL=http://localhost:5000/api
+// Frontend .env must have: VITE_API_URL=/api   (relative path, for Vite proxy)
 
-const BASE = (import.meta as any).env?.VITE_API_URL || "http://localhost:5000/api";
+// FIX: fallback is now /api (relative) instead of http://localhost:5000/api
+// This ensures the Vite dev proxy handles requests, avoiding CORS issues.
+const BASE = (import.meta as any).env?.VITE_API_URL || "/api";
 
 // ── Token storage ─────────────────────────────────────────────────────────────
 export const tokenStore = {
-  get:   () => sessionStorage.getItem("sf_jwt"),
-  set:   (t: string, _remember = true) => sessionStorage.setItem("sf_jwt", t),
-  clear: () => sessionStorage.removeItem("sf_jwt"),
+  get: () =>
+    sessionStorage.getItem("sf_jwt") || localStorage.getItem("sf_jwt"),
+
+  set: (t: string, remember = false) => {
+    if (remember) {
+      localStorage.setItem("sf_jwt", t);
+    } else {
+      sessionStorage.setItem("sf_jwt", t);
+    }
+  },
+
+  clear: () => {
+    sessionStorage.removeItem("sf_jwt");
+    localStorage.removeItem("sf_jwt");
+  },
 };
+
 // ── Core fetch wrapper ────────────────────────────────────────────────────────
 async function apiFetch<T = unknown>(
   path: string,
@@ -47,6 +62,9 @@ export const authAPI = {
 
   resendOTP: (email: string) =>
     apiFetch("/auth/resend-otp", { method: "POST", body: JSON.stringify({ email }) }),
+
+  exchangeCode: (code: string) =>
+    apiFetch("/auth/exchange-code", { method: "POST", body: JSON.stringify({ code }) }),
 
   me:     () => apiFetch("/auth/me"),
   logout: () => apiFetch("/auth/logout", { method: "POST" }),

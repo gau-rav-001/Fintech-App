@@ -10,10 +10,19 @@ const adminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
     const admin = await Admin.findByEmailWithPassword(email);
-    if (!admin || !admin.isActive) return fail(res, "Invalid credentials.", 401);
+
+    // FIX: use a single error message for both "account not found / inactive"
+    //      and "wrong password" cases. The old code returned different messages
+    //      ("Invalid credentials." vs "Incorrect password."), allowing an attacker
+    //      to enumerate valid admin email addresses by observing the response.
+    if (!admin || !admin.isActive) {
+      // Still run compare to prevent timing attacks
+      await Admin.comparePassword("$2b$12$dummyhashtopreventtimingattack00000000000000000", password).catch(() => {});
+      return fail(res, "Invalid email or password.", 401);
+    }
 
     const match = await Admin.comparePassword(admin.passwordHash, password);
-    if (!match) return fail(res, "Incorrect password.", 401);
+    if (!match) return fail(res, "Invalid email or password.", 401);
 
     const { passwordHash: _, ...safeAdmin } = admin;
     const token = signToken(buildPayload(safeAdmin));
@@ -29,14 +38,19 @@ const getAdminMe = (req, res) => ok(res, { admin: req.user });
 // ── GET /api/admin/users ──────────────────────────────────────────────────────
 const getAllUsers = async (req, res) => {
   try {
-    const { page = 1, limit = 20, search = "", profileComplete } = req.query;
+    const { page = 1, search = "", profileComplete } = req.query;
+
+    // FIX: cap the limit to prevent a caller from dumping the entire users table
+    //      in a single query by passing an arbitrarily large ?limit= value.
+    const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+
     const pcFilter = profileComplete !== undefined
       ? profileComplete === "true"
       : undefined;
 
     const { users, total } = await User.findAll({
       page:    parseInt(page),
-      limit:   parseInt(limit),
+      limit,
       search,
       profileComplete: pcFilter,
     });
@@ -44,8 +58,8 @@ const getAllUsers = async (req, res) => {
     return ok(res, {
       users,
       pagination: {
-        page: parseInt(page), limit: parseInt(limit), total,
-        pages: Math.ceil(total / parseInt(limit)),
+        page: parseInt(page), limit, total,
+        pages: Math.ceil(total / limit),
       },
     });
   } catch (err) {
