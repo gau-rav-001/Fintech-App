@@ -1,3 +1,4 @@
+// backend/server.js
 require("dotenv").config();
 
 const express      = require("express");
@@ -10,6 +11,41 @@ const passport     = require("passport");
 require("./config/db");
 require("./config/passport");
 
+// ── Optional Redis wiring (Fix #2) ───────────────────────────────────────────
+// If REDIS_URL is set, plug in Redis adapters for OTP store and JWT blacklist.
+// Remove the if-block to force in-memory (dev only).
+if (process.env.REDIS_URL) {
+  try {
+    const Redis = require("ioredis");
+    const redis = new Redis(process.env.REDIS_URL);
+
+    const { setAdapter }         = require("./utils/otp");
+    const { setBlacklistAdapter } = require("./utils/jwt");
+
+    setAdapter({
+      async get(key) {
+        const raw = await redis.get(`otp:${key}`);
+        return raw ? JSON.parse(raw) : null;
+      },
+      async set(key, value) {
+        await redis.set(`otp:${key}`, JSON.stringify(value), "PX", 5 * 60 * 1000);
+      },
+      async del(key) { await redis.del(`otp:${key}`); },
+    });
+
+    setBlacklistAdapter({
+      async add(jti, ttlMs) { await redis.set(`bl:${jti}`, "1", "PX", ttlMs); },
+      async has(jti) { return (await redis.exists(`bl:${jti}`)) === 1; },
+    });
+
+    console.log("✅ Redis connected — OTP store and JWT blacklist are persistent.");
+  } catch (e) {
+    console.error("⚠️  REDIS_URL set but ioredis failed to connect:", e.message);
+  }
+} else {
+  console.warn("⚠️  REDIS_URL not set — using in-memory OTP/JWT store (single-instance / dev only).");
+}
+
 const authRoutes    = require("./routes/authRoutes");
 const userRoutes    = require("./routes/userRoutes");
 const adminRoutes   = require("./routes/adminRoutes");
@@ -21,8 +57,8 @@ const isProd = process.env.NODE_ENV === "production";
 
 // ── Security headers ──────────────────────────────────────────────────────────
 app.use(helmet({
-  contentSecurityPolicy:      isProd ? undefined : false,
-  crossOriginEmbedderPolicy:  false,
+  contentSecurityPolicy:     isProd ? undefined : false,
+  crossOriginEmbedderPolicy: false,
 }));
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
@@ -33,7 +69,7 @@ if (isProd && !process.env.CLIENT_URL) {
 }
 app.use(cors({
   origin:         allowedOrigin,
-  credentials:    true,
+  credentials:    true,               // required for cookies
   methods:        ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 }));
@@ -55,9 +91,6 @@ const authLimiter = rateLimit({
   message: { success: false, message: "Too many auth attempts. Try again in 15 minutes." },
 });
 
-// FIX: removed the duplicate otpLimiter that was defined here but never applied.
-//      The OTP rate limiter is correctly defined and applied inside authRoutes.js.
-
 app.use(globalLimiter);
 
 // ── Body parsers ──────────────────────────────────────────────────────────────
@@ -68,14 +101,10 @@ app.use(cookieParser());
 // ── Passport ──────────────────────────────────────────────────────────────────
 app.use(passport.initialize());
 
-// ── Health check ──────────────────────────────────────────────────────────────
+// ── Health check (Fix #10) ───────────────────────────────────────────────────
+// Removed NODE_ENV and internal service details — only expose liveness status
 app.get("/health", (req, res) => {
-  res.json({
-    status:  "ok",
-    service: "SmartFinance API",
-    env:     process.env.NODE_ENV,
-    time:    new Date().toISOString(),
-  });
+  res.json({ status: "ok" });
 });
 
 // ── Routes ────────────────────────────────────────────────────────────────────

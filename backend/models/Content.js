@@ -1,9 +1,6 @@
+// backend/models/Content.js
 const db = require("../config/db");
 
-// FIX: every column is explicitly aliased with the table alias (c.) so that
-// the LEFT JOIN on admins in findAll() does not produce an
-// "ERROR: column reference is ambiguous" crash on shared columns like
-// id, created_at, and updated_at.
 const COLS = `
   c.id, c.type, c.title, c.description,
   c.speaker, c.date, c.time, c.duration, c.link, c.status,
@@ -12,7 +9,6 @@ const COLS = `
   c.created_by, c.is_published, c.created_at, c.updated_at
 `;
 
-// Plain column list for single-table queries (no alias needed)
 const COLS_PLAIN = `
   id, type, title, description,
   speaker, date, time, duration, link, status,
@@ -48,43 +44,84 @@ function formatContent(row) {
   };
 }
 
-async function findPublic(type) {
+// Fix #12: add pagination to findPublic
+async function findPublic(type, { page = 1, limit = 20 } = {}) {
   const params = [];
-  let where = "WHERE is_published = TRUE";
-  if (type) { where += " AND type = $1"; params.push(type); }
+  let   idx    = 1;
+  let   where  = "WHERE is_published = TRUE";
 
-  const { rows } = await db.query(
-    `SELECT ${COLS_PLAIN} FROM content ${where} ORDER BY created_at DESC LIMIT 50`,
-    params
-  );
-  return rows.map(formatContent);
+  if (type) { where += ` AND type = $${idx++}`; params.push(type); }
+
+  const offset = (page - 1) * limit;
+  params.push(limit, offset);
+
+  const [{ rows }, { rows: countRows }] = await Promise.all([
+    db.query(
+      `SELECT ${COLS_PLAIN} FROM content ${where} ORDER BY created_at DESC LIMIT $${idx} OFFSET $${idx + 1}`,
+      params
+    ),
+    db.query(
+      `SELECT COUNT(*) FROM content ${where}`,
+      params.slice(0, -2)  // exclude limit/offset from count query
+    ),
+  ]);
+
+  return {
+    items: rows.map(formatContent),
+    total: parseInt(countRows[0].count),
+    page,
+    limit,
+    pages: Math.ceil(parseInt(countRows[0].count) / limit),
+  };
 }
 
-async function findAll(type) {
+// Fix #12: add pagination to findAll
+async function findAll(type, { page = 1, limit = 50 } = {}) {
   const params = [];
-  let where = "";
-  if (type) { where = "WHERE c.type = $1"; params.push(type); }
+  let   idx    = 1;
+  let   where  = "";
 
-  // FIX: use COLS (with c. aliases) so that id/created_at/updated_at from the
-  //      admins JOIN don't collide with content's own columns.
-  const { rows } = await db.query(
-    `SELECT ${COLS}, a.full_name AS creator_name, a.email AS creator_email
-     FROM content c
-     LEFT JOIN admins a ON a.id = c.created_by
-     ${where}
-     ORDER BY c.created_at DESC`,
-    params
-  );
-  return rows.map(r => ({ ...formatContent(r), creatorName: r.creator_name, creatorEmail: r.creator_email }));
+  if (type) { where = `WHERE c.type = $${idx++}`; params.push(type); }
+
+  const offset = (page - 1) * limit;
+  params.push(limit, offset);
+
+  const [{ rows }, { rows: countRows }] = await Promise.all([
+    db.query(
+      `SELECT ${COLS}, a.full_name AS creator_name, a.email AS creator_email
+       FROM content c
+       LEFT JOIN admins a ON a.id = c.created_by
+       ${where}
+       ORDER BY c.created_at DESC
+       LIMIT $${idx} OFFSET $${idx + 1}`,
+      params
+    ),
+    db.query(
+      `SELECT COUNT(*) FROM content c ${where}`,
+      params.slice(0, -2)
+    ),
+  ]);
+
+  return {
+    items: rows.map(r => ({
+      ...formatContent(r),
+      creatorName:  r.creator_name,
+      creatorEmail: r.creator_email,
+    })),
+    total: parseInt(countRows[0].count),
+    page,
+    limit,
+    pages: Math.ceil(parseInt(countRows[0].count) / limit),
+  };
 }
 
 async function create(data, adminId) {
   const {
-    type, title, description = "",
-    speaker = "", date = "", time = "", duration = "", link = "", status = "upcoming",
-    summary = "", source = "", category = "general", urgent = false, publishedAt,
-    youtubeUrl = "", thumbnail = "",
-    isPublished = true,
+    type, title,
+    description = "", speaker = "", date = "", time = "", duration = "",
+    link = "", status = "upcoming", summary = "", source = "",
+    category = "general", urgent = false, publishedAt,
+    youtubeUrl = "", thumbnail = "", isPublished = true,
   } = data;
 
   const { rows } = await db.query(

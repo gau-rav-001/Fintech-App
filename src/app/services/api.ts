@@ -1,43 +1,28 @@
+// src/app/services/api.ts
 // ── SmartFinance API client ────────────────────────────────────────────────────
-// Place at:  src/app/services/api.ts
-// Frontend .env must have: VITE_API_URL=/api   (relative path, for Vite proxy)
+// Fix #5: tokens are now stored in HttpOnly cookies by the server.
+// The frontend no longer stores or sends JWT tokens — credentials:include
+// automatically attaches cookies on every request.
 
-// FIX: fallback is now /api (relative) instead of http://localhost:5000/api
-// This ensures the Vite dev proxy handles requests, avoiding CORS issues.
 const BASE = (import.meta as any).env?.VITE_API_URL || "/api";
 
-// ── Token storage ─────────────────────────────────────────────────────────────
-export const tokenStore = {
-  get: () =>
-    sessionStorage.getItem("sf_jwt") || localStorage.getItem("sf_jwt"),
-
-  set: (t: string, remember = false) => {
-    if (remember) {
-      localStorage.setItem("sf_jwt", t);
-    } else {
-      sessionStorage.setItem("sf_jwt", t);
-    }
-  },
-
-  clear: () => {
-    sessionStorage.removeItem("sf_jwt");
-    localStorage.removeItem("sf_jwt");
-  },
-};
-
 // ── Core fetch wrapper ────────────────────────────────────────────────────────
+// Fix #5: removed manual Authorization header injection and localStorage token storage.
+// cookies are sent automatically via credentials: "include".
 async function apiFetch<T = unknown>(
   path: string,
   options: RequestInit = {}
 ): Promise<{ success: boolean; message: string; data: T }> {
-  const token   = tokenStore.get();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res  = await fetch(`${BASE}${path}`, { ...options, headers });
+  const res  = await fetch(`${BASE}${path}`, {
+    ...options,
+    headers,
+    credentials: "include",   // send HttpOnly cookies on every request
+  });
   const json = await res.json();
 
   if (!res.ok) {
@@ -69,7 +54,6 @@ export const authAPI = {
   me:     () => apiFetch("/auth/me"),
   logout: () => apiFetch("/auth/logout", { method: "POST" }),
 
-  /** Redirect browser to this URL to start Google OAuth */
   googleLoginURL: () => `${BASE}/auth/google`,
 };
 
@@ -91,14 +75,20 @@ export const userAPI = {
 
 // ── Content API (public) ──────────────────────────────────────────────────────
 export const contentAPI = {
-  getAll: (type?: "webinar" | "news" | "video") =>
-    apiFetch(`/content${type ? `?type=${type}` : ""}`),
+  getAll: (type?: "webinar" | "news" | "video", page = 1) =>
+    apiFetch(`/content?page=${page}${type ? `&type=${type}` : ""}`),
 };
 
 // ── Admin API ─────────────────────────────────────────────────────────────────
 export const adminAPI = {
+  // Fix #4: two-step admin login
   login: (body: { email: string; password: string }) =>
     apiFetch("/admin/login", { method: "POST", body: JSON.stringify(body) }),
+
+  verifyOTP: (body: { email: string; otp: string }) =>
+    apiFetch("/admin/verify-otp", { method: "POST", body: JSON.stringify(body) }),
+
+  logout: () => apiFetch("/admin/logout", { method: "POST" }),
 
   me:       () => apiFetch("/admin/me"),
   getStats: () => apiFetch("/admin/stats"),
@@ -112,7 +102,7 @@ export const adminAPI = {
   },
 
   getUserById:   (id: string) => apiFetch(`/admin/users/${id}`),
-  getContent:    ()           => apiFetch("/admin/content"),
+  getContent:    (page = 1)   => apiFetch(`/admin/content?page=${page}`),
 
   createContent: (data: Record<string, unknown>) =>
     apiFetch("/admin/content", { method: "POST", body: JSON.stringify(data) }),

@@ -1,36 +1,79 @@
+// backend/controllers/adminController.js
 const Admin   = require("../models/Admin");
 const User    = require("../models/User");
 const Content = require("../models/Content");
 const db      = require("../config/db");
 const { signToken, buildPayload } = require("../utils/jwt");
-const { ok, fail }                = require("../utils/response");
+const { generateOTP, saveOTP, verifyOTP } = require("../utils/otp");
+const { sendOTPEmail }                    = require("../utils/email");
+const { ok, fail }                        = require("../utils/response");
+// ✅ FIX: Removed circular require("./authController") — admin uses its own cookie helpers below.
 
-// ── POST /api/admin/login ─────────────────────────────────────────────────────
+const ADMIN_COOKIE = "sf_admin_token";
+const ADMIN_COOKIE_OPTS = {
+  httpOnly: true,
+  secure:   process.env.COOKIE_SECURE === "true",
+  sameSite: process.env.COOKIE_SAME_SITE || "lax",
+  maxAge:   4 * 60 * 60 * 1000, // 4 hours — shorter for admin sessions
+  path:     "/",
+};
+
+// ── POST /api/admin/login — Step 1: validate credentials, send OTP ────────────
 const adminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
     const admin = await Admin.findByEmailWithPassword(email);
 
-    // FIX: use a single error message for both "account not found / inactive"
-    //      and "wrong password" cases. The old code returned different messages
-    //      ("Invalid credentials." vs "Incorrect password."), allowing an attacker
-    //      to enumerate valid admin email addresses by observing the response.
     if (!admin || !admin.isActive) {
-      // Still run compare to prevent timing attacks
-      await Admin.comparePassword("$2b$12$dummyhashtopreventtimingattack00000000000000000", password).catch(() => {});
+      await Admin.comparePassword(
+        "$2b$12$dummyhashtopreventtimingattack00000000000000000",
+        password
+      ).catch(() => {});
       return fail(res, "Invalid email or password.", 401);
     }
 
     const match = await Admin.comparePassword(admin.passwordHash, password);
     if (!match) return fail(res, "Invalid email or password.", 401);
 
-    const { passwordHash: _, ...safeAdmin } = admin;
-    const token = signToken(buildPayload(safeAdmin));
-    return ok(res, { token, admin: safeAdmin }, "Admin login successful.");
+    // Credentials valid — send OTP instead of issuing JWT immediately
+    const otp = generateOTP();
+    await saveOTP(`admin:${email}`, otp);
+    await sendOTPEmail(email, otp, admin.fullName || "Admin");
+
+    return ok(res, { email, requiresOTP: true }, "OTP sent to your registered email.");
   } catch (err) {
     console.error("adminLogin:", err);
     return fail(res, "Login failed.", 500);
   }
+};
+
+// ── POST /api/admin/verify-otp — Step 2: verify OTP, issue cookie ─────────────
+const adminVerifyOTP = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const result = await verifyOTP(`admin:${email}`, otp);
+    if (!result.valid) return fail(res, result.error, 400);
+
+    const admin = await Admin.findByEmailWithPassword(email);
+    if (!admin || !admin.isActive) return fail(res, "Admin account not found.", 404);
+
+    const { passwordHash: _, ...safeAdmin } = admin;
+    const token = signToken(buildPayload({ ...safeAdmin, role: "admin" }));
+
+    res.cookie(ADMIN_COOKIE, token, ADMIN_COOKIE_OPTS);
+
+    return ok(res, { admin: safeAdmin }, "Admin login successful.");
+  } catch (err) {
+    console.error("adminVerifyOTP:", err);
+    return fail(res, "OTP verification failed.", 500);
+  }
+};
+
+// ── POST /api/admin/logout ─────────────────────────────────────────────────────
+const adminLogout = (req, res) => {
+  res.clearCookie(ADMIN_COOKIE, { httpOnly: true, path: "/" });
+  return ok(res, {}, "Logged out.");
 };
 
 const getAdminMe = (req, res) => ok(res, { admin: req.user });
@@ -39,9 +82,6 @@ const getAdminMe = (req, res) => ok(res, { admin: req.user });
 const getAllUsers = async (req, res) => {
   try {
     const { page = 1, search = "", profileComplete } = req.query;
-
-    // FIX: cap the limit to prevent a caller from dumping the entire users table
-    //      in a single query by passing an arbitrarily large ?limit= value.
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
 
     const pcFilter = profileComplete !== undefined
@@ -75,6 +115,7 @@ const getUserById = async (req, res) => {
     return ok(res, { user });
   } catch (err) {
     console.error("getUserById:", err);
+    if (err.code === "22P02") return fail(res, "Invalid user ID format.", 400);
     return fail(res, "Failed to fetch user.", 500);
   }
 };
@@ -146,7 +187,9 @@ const deleteContent = async (req, res) => {
 
 const getAllContent = async (req, res) => {
   try {
-    const content = await Content.findAll(req.query.type);
+    const { type, page = 1, limit: rawLimit = 50 } = req.query;
+    const limit = Math.min(parseInt(rawLimit) || 50, 200);
+    const content = await Content.findAll(type, { page: parseInt(page), limit });
     return ok(res, { content });
   } catch (err) {
     console.error("getAllContent:", err);
@@ -156,7 +199,9 @@ const getAllContent = async (req, res) => {
 
 const getPublicContent = async (req, res) => {
   try {
-    const content = await Content.findPublic(req.query.type);
+    const { type, page = 1, limit: rawLimit = 20 } = req.query;
+    const limit = Math.min(parseInt(rawLimit) || 20, 100);
+    const content = await Content.findPublic(type, { page: parseInt(page), limit });
     return ok(res, { content });
   } catch (err) {
     console.error("getPublicContent:", err);
@@ -165,7 +210,8 @@ const getPublicContent = async (req, res) => {
 };
 
 module.exports = {
-  adminLogin, getAdminMe,
+  adminLogin, adminVerifyOTP, adminLogout, getAdminMe,
   getAllUsers, getUserById, getPlatformStats,
   createContent, updateContent, deleteContent, getAllContent, getPublicContent,
+  ADMIN_COOKIE,
 };

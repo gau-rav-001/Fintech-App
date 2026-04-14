@@ -3,6 +3,7 @@ import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { useAuth } from "../auth/AuthContext";
 import { ServiceCarousel, type ServiceItem } from "../components/ServiceCarousel";
+import Testimonials from "./Testimonials";
 import {
   TrendingUp,
   Shield,
@@ -450,6 +451,9 @@ export function Home() {
           </div>
         </div>
       </section>
+
+      {/* Testimonials Section */}
+        <Testimonials />      
 
       {/* WhatsApp CTA */}
       <section className="relative py-16 overflow-hidden bg-[linear-gradient(135deg,#0c1f17_0%,#123d2a_40%,#1A5F3D_70%,#2D7A4E_100%)]">

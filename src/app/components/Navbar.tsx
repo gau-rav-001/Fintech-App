@@ -38,8 +38,8 @@ export function Navbar() {
     isActive("/calculator/sip") ||
     isActive("/calculator/lumpsum");
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logout();
     navigate("/login", { replace: true });
     setMobileMenuOpen(false);
     setUserMenuOpen(false);

@@ -126,7 +126,7 @@ export function Dashboard() {
   const cms  = getAdminContent();
   const up   = getUserProfile(user?.id ?? "");
 
-  function handleLogout() { logout(); navigate("/login", { replace: true }); }
+  async function handleLogout() { await logout(); navigate("/login", { replace: true }); }
 
   const displayName  = up?.personal.fullName || user?.name  || "User";
   const displayEmail = up?.personal.email    || user?.email || "";

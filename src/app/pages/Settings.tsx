@@ -80,8 +80,8 @@ export function Settings() {
     showToast("Changes saved successfully!");
   }
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logout();
     navigate("/login", { replace: true });
   }
 

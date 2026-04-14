@@ -1,4 +1,4 @@
-// Frontend/src/app/pages/Login.tsx
+// src/app/pages/Login.tsx
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 import {
@@ -15,25 +15,23 @@ import {
   validateEmail,
   validatePassword,
   validateOTP,
-  type AuthSession,
 } from "../auth/authService";
-import { hasCompletedOnboarding } from "../data/userProfile";
 
 type LoginPhase = "credentials" | "otp" | "success";
 
 export function Login() {
-  const navigate      = useNavigate();
-  const location      = useLocation();
-  const [searchParams] = useSearchParams();        // ✅ FIX: read post-signup params
-  const { setSession } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  // Fix: use setUser (not setSession) from the new AuthContext
+  const { setUser } = useAuth();
 
   const from = (location.state as { from?: string })?.from ?? "/dashboard";
 
-  const [email,     setEmail]    = useState("");
-  const [password,  setPassword] = useState("");
-  const [showPw,    setShowPw]   = useState(false);
-  const [remember,  setRemember] = useState(false);
-  const [otp,       setOTP]      = useState(["", "", "", "", "", ""]);
+  const [email,    setEmail]   = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw,   setShowPw]  = useState(false);
+  const [otp,      setOTP]     = useState(["", "", "", "", "", ""]);
 
   const [phase,      setPhase]      = useState<LoginPhase>("credentials");
   const [loading,    setLoading]    = useState(false);
@@ -41,15 +39,14 @@ export function Login() {
   const [success,    setSuccess]    = useState<string | null>(null);
   const [forgotMode, setForgotMode] = useState(false);
   const [otpError,   setOtpError]   = useState<string | null>(null);
-
-  const [emailErr, setEmailErr] = useState<string | null>(null);
-  const [pwErr,    setPwErr]    = useState<string | null>(null);
-
+  const [emailErr,   setEmailErr]   = useState<string | null>(null);
+  const [pwErr,      setPwErr]      = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const cooldownRef   = useRef<ReturnType<typeof setInterval> | null>(null);
-  const otpInputRefs  = useRef<(HTMLInputElement | null)[]>([]);
 
-  // ✅ FIX: if coming from Signup page after registration, jump straight to OTP step
+  const cooldownRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Jump straight to OTP step when coming from Signup
   useEffect(() => {
     const preEmail = searchParams.get("email");
     const verify   = searchParams.get("verify");
@@ -79,15 +76,6 @@ export function Login() {
     }, 1000);
   }
 
-  function handleSessionReady(session: AuthSession) {
-    setSession(session, remember);
-    setPhase("success");
-    const destination = hasCompletedOnboarding(session.user.id)
-      ? (from === "/login" ? "/dashboard" : from)
-      : "/onboarding";
-    setTimeout(() => navigate(destination, { replace: true }), 1000);
-  }
-
   // ── Step 1: Credentials ───────────────────────────────────────────────────
   async function handleCredentialSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -105,7 +93,7 @@ export function Login() {
         setError(result.error ?? "Login failed. Please try again.");
       } else {
         setSuccess(`OTP sent to ${email}. Check your inbox.`);
-        setTimeout(() => { setSuccess(null); setPhase("otp"); }, 2000);
+        setTimeout(() => { setSuccess(null); setPhase("otp"); }, 1500);
       }
     } finally {
       setLoading(false);
@@ -131,7 +119,10 @@ export function Login() {
 
   function handleOTPPaste(e: React.ClipboardEvent) {
     const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-    if (pasted.length === 6) { setOTP(pasted.split("")); otpInputRefs.current[5]?.focus(); }
+    if (pasted.length === 6) {
+      setOTP(pasted.split(""));
+      otpInputRefs.current[5]?.focus();
+    }
   }
 
   async function handleOTPSubmit(e: React.FormEvent) {
@@ -139,16 +130,28 @@ export function Login() {
     const code = otp.join("");
     const err  = validateOTP(code);
     if (err) { setOtpError(err); return; }
+
     setLoading(true);
     setOtpError(null);
     try {
-      const result = await verifyOTP(email, code, remember);
+      // Fix: verifyOTP now takes 2 args, returns { success, user }
+      // Server sets the HttpOnly cookie on success
+      const result = await verifyOTP(email, code);
+
       if (!result.success) {
         setOtpError(result.error ?? "Incorrect OTP.");
         setOTP(["", "", "", "", "", ""]);
         otpInputRefs.current[0]?.focus();
-      } else if (result.session) {
-        handleSessionReady(result.session);
+      } else if (result.user) {
+        // Fix: use setUser (not setSession) — token is in the HttpOnly cookie
+        setUser(result.user);
+        setPhase("success");
+
+        // Fix: use isProfileComplete from server, not local mock data
+        const destination = result.user.isProfileComplete
+          ? (from === "/login" ? "/dashboard" : from)
+          : "/onboarding";
+        setTimeout(() => navigate(destination, { replace: true }), 1000);
       }
     } finally {
       setLoading(false);
@@ -161,7 +164,7 @@ export function Login() {
     setOtpError(null);
     try {
       await resendOTP(email);
-      setSuccess("New OTP sent! Check your email inbox.");
+      setSuccess("New OTP sent!");
       setTimeout(() => setSuccess(null), 3000);
       startCooldown();
     } finally {
@@ -169,106 +172,73 @@ export function Login() {
     }
   }
 
-  // ── Google Sign-In ────────────────────────────────────────────────────────
-  // ✅ FIX: loginWithGoogle() now does window.location.href redirect — it
-  //         does NOT return a value. Removed the old await + result pattern
-  //         that was crashing with "Cannot read properties of undefined".
-  function handleGoogleLogin() {
-    setLoading(true);
-    setError(null);
-    loginWithGoogle(); // redirects browser — page navigation takes over
-    // setLoading(false) is intentionally omitted: page will navigate away
-  }
-
-  const inputCls = (hasError: boolean) =>
-    `w-full pl-12 pr-4 py-3 border ${
-      hasError ? "border-red-400 focus:ring-red-300" : "border-gray-300 focus:ring-[#1A5F3D]"
-    } rounded-xl focus:ring-2 focus:border-transparent outline-none transition-all`;
+  const inputCls = (hasErr: boolean) =>
+    `w-full pl-12 pr-4 py-3 border rounded-xl text-sm outline-none transition-all bg-white ${
+      hasErr
+        ? "border-red-400 focus:ring-2 focus:ring-red-300"
+        : "border-gray-200 focus:ring-2 focus:ring-[#1A5F3D]/30 focus:border-[#1A5F3D]"
+    }`;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F7F9FB] via-white to-[#F7F9FB] flex items-center justify-center p-4">
-      <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 items-center">
-
-        {/* ── Left — Branding ── */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6 }} className="hidden lg:block"
-        >
-          <Link to="/" className="inline-flex items-center space-x-2 mb-8">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center">
-              <span className="text-white font-bold text-xl">SF</span>
-            </div>
-            <span className="font-bold text-2xl text-gray-900">SmartFinance</span>
-          </Link>
-
-          <h1 className="text-5xl font-bold text-gray-900 mb-6">Welcome Back!</h1>
-          <p className="text-xl text-gray-600 mb-8">Continue your journey towards financial freedom</p>
-
+    <div className="min-h-screen bg-gradient-to-br from-[#f0faf4] via-white to-[#e8f5ee] flex">
+      {/* Left panel — branding */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#1A5F3D] to-[#0d3b25] flex-col justify-center items-center p-16 text-white">
+        <div className="max-w-md">
+          <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center mb-8">
+            <span className="text-3xl font-bold">SF</span>
+          </div>
+          <h1 className="text-4xl font-bold mb-4">Welcome back</h1>
+          <p className="text-white/70 text-lg mb-12">Sign in to manage your finances and track your goals.</p>
           <div className="space-y-4">
-            <FeatureItem text="Track your investments in real-time" />
-            <FeatureItem text="Access personalized recommendations" />
-            <FeatureItem text="Manage your portfolio efficiently" />
+            {["Secure OTP-based login", "Real-time financial insights", "Your data, always private"].map(t => (
+              <FeatureItem key={t} text={t} />
+            ))}
           </div>
+        </div>
+      </div>
 
-          <div className="mt-10 p-4 rounded-2xl border border-[#d7eadf] bg-[#f3faf6]">
-            <p className="text-xs font-semibold text-[#1A5F3D] mb-1">🔑 Demo Account</p>
-            <p className="text-xs text-gray-600">Email: <span className="font-mono font-semibold">demo@smartfinance.in</span></p>
-            <p className="text-xs text-gray-600">Password: <span className="font-mono font-semibold">demo1234</span></p>
-            <p className="text-xs text-gray-500 mt-1">OTP will be sent to your registered email</p>
-          </div>
-        </motion.div>
-
-        {/* ── Right — Auth Card ── */}
+      {/* Right panel — form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6">
         <motion.div
-          initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          className="bg-white rounded-3xl shadow-2xl p-8 md:p-12"
+          initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="w-full max-w-md"
         >
-          <div className="lg:hidden mb-8">
-            <Link to="/" className="inline-flex items-center space-x-2">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center">
-                <span className="text-white font-bold text-xl">SF</span>
-              </div>
-              <span className="font-bold text-xl text-gray-900">SmartFinance</span>
-            </Link>
-          </div>
-
-          <AnimatePresence>
-            {error && (
-              <motion.div key="err"
-                initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                className="flex items-start gap-3 mb-6 p-3 rounded-xl bg-red-50 border border-red-200"
-              >
-                <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-red-700">{error}</p>
-              </motion.div>
-            )}
-            {success && (
-              <motion.div key="ok"
-                initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                className="flex items-start gap-3 mb-6 p-3 rounded-xl bg-green-50 border border-green-200"
-              >
-                <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-green-700">{success}</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {success && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+              className="flex items-center gap-2 mb-4 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700"
+            >
+              <CheckCircle className="w-4 h-4 shrink-0" /> {success}
+            </motion.div>
+          )}
 
           <AnimatePresence mode="wait">
             {/* ── Phase: Credentials ── */}
             {phase === "credentials" && (
-              <motion.div key="creds"
-                initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25 }}
+              <motion.div key="credentials"
+                initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.25 }}
               >
-                <h2 className="text-3xl font-bold text-gray-900 mb-2">Sign In</h2>
-                <p className="text-gray-600 mb-8">Enter your credentials to access your account</p>
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">Sign in</h2>
+                <p className="text-gray-500 mb-8">New here?{" "}
+                  <Link to="/signup" className="text-[#1A5F3D] font-semibold hover:underline">Create an account</Link>
+                </p>
 
-                <button type="button" onClick={handleGoogleLogin} disabled={loading}
-                  className="w-full flex items-center justify-center gap-3 py-3 border-2 border-gray-200 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all mb-6 disabled:opacity-60"
+                {error && (
+                  <div className="flex items-start gap-2 mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+                    <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                    <p className="text-sm text-red-700">{error}</p>
+                  </div>
+                )}
+
+                {/* Google sign-in */}
+                <button
+                  onClick={loginWithGoogle}
+                  className="w-full flex items-center justify-center gap-3 py-3 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all mb-6"
                 >
                   <GoogleIcon />
-                  {loading ? "Connecting…" : "Continue with Google"}
+                  Continue with Google
                 </button>
 
                 <div className="relative flex items-center gap-3 mb-6">
@@ -277,7 +247,7 @@ export function Login() {
                   <div className="flex-1 h-px bg-gray-200" />
                 </div>
 
-                <form onSubmit={handleCredentialSubmit} className="space-y-6" noValidate>
+                <form onSubmit={handleCredentialSubmit} className="space-y-5" noValidate>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                     <div className="relative">
@@ -298,8 +268,8 @@ export function Login() {
                         onChange={(e) => { setPassword(e.target.value); setPwErr(null); setError(null); }}
                         onBlur={() => setPwErr(validatePassword(password))}
                         className={`${inputCls(!!pwErr)} pr-12`} placeholder="••••••••" autoComplete="current-password" />
-                      <button type="button" onClick={() => setShowPw((v) => !v)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors" tabIndex={-1}>
+                      <button type="button" onClick={() => setShowPw((v) => !v)} tabIndex={-1}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
                         {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
@@ -307,11 +277,7 @@ export function Login() {
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)}
-                        className="w-4 h-4 text-[#1A5F3D] border-gray-300 rounded focus:ring-[#1A5F3D]" />
-                      <span className="text-sm text-gray-600">Remember me</span>
-                    </label>
+                    <span />
                     <button type="button" onClick={() => setForgotMode(v => !v)}
                       className="text-sm text-[#1A5F3D] hover:underline">
                       Forgot password?
@@ -321,30 +287,17 @@ export function Login() {
                   {forgotMode && (
                     <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-800">
                       <p className="font-semibold mb-1">Reset your password</p>
-                      <p>Contact <span className="font-mono font-semibold">support@smartfinance.in</span> with your registered email and we'll send a reset link within 24 hours.</p>
+                      <p>Contact <span className="font-mono font-semibold">support@smartfinance.in</span> and we'll send a reset link within 24 hours.</p>
                       <button type="button" onClick={() => setForgotMode(false)}
                         className="mt-2 text-xs text-blue-600 hover:underline">Close</button>
                     </div>
                   )}
 
                   <button type="submit" disabled={loading}
-                    className="w-full py-3 bg-gradient-to-r from-[#1A5F3D] to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100">
-                    {loading ? <><Spinner /> Verifying…</> : <>Send OTP <ArrowRight className="w-5 h-5" /></>}
+                    className="w-full py-3 bg-gradient-to-r from-[#1A5F3D] to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-[1.01] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:scale-100">
+                    {loading ? <><Spinner /> Sending OTP…</> : <>Send OTP <ArrowRight className="w-5 h-5" /></>}
                   </button>
                 </form>
-
-                <div className="mt-6 text-center">
-                  <p className="text-gray-600">
-                    Don't have an account?{" "}
-                    <Link to="/signup" className="text-[#1A5F3D] font-semibold hover:underline">Sign up</Link>
-                  </p>
-                </div>
-
-                <div className="mt-8 pt-8 border-t border-gray-200">
-                  <p className="text-center text-sm text-gray-500">
-                    By signing in, you agree to our Terms of Service and Privacy Policy
-                  </p>
-                </div>
               </motion.div>
             )}
 
@@ -360,7 +313,7 @@ export function Login() {
                   </div>
                 </div>
                 <h2 className="text-3xl font-bold text-gray-900 mb-2 text-center">Verify Your Identity</h2>
-                <p className="text-gray-600 mb-2 text-center">We've sent a 6-digit OTP to</p>
+                <p className="text-gray-600 mb-1 text-center">We've sent a 6-digit code to</p>
                 <p className="text-center font-semibold text-[#1A5F3D] mb-8">{email}</p>
 
                 <form onSubmit={handleOTPSubmit} className="space-y-6">
@@ -389,10 +342,10 @@ export function Login() {
                     )}
                   </div>
 
-                  <p className="text-center text-xs text-gray-400">OTP expires in 5 minutes</p>
+                  <p className="text-center text-xs text-gray-400">Code expires in 5 minutes</p>
 
                   <button type="submit" disabled={loading || otp.join("").length < 6}
-                    className="w-full py-3 bg-gradient-to-r from-[#1A5F3D] to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100">
+                    className="w-full py-3 bg-gradient-to-r from-[#1A5F3D] to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-[1.01] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:scale-100">
                     {loading ? <><Spinner /> Verifying…</> : <><ShieldCheck className="w-5 h-5" /> Verify &amp; Sign In</>}
                   </button>
 
@@ -443,10 +396,10 @@ export function Login() {
 function FeatureItem({ text }: { text: string }) {
   return (
     <div className="flex items-center space-x-3">
-      <div className="w-6 h-6 rounded-full bg-[#1A5F3D]/10 flex items-center justify-center">
-        <div className="w-2 h-2 rounded-full bg-[#1A5F3D]" />
+      <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
+        <div className="w-2 h-2 rounded-full bg-white" />
       </div>
-      <span className="text-gray-700">{text}</span>
+      <span className="text-white/80">{text}</span>
     </div>
   );
 }

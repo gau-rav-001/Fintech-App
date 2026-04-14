@@ -1,40 +1,31 @@
-// Place at:  src/app/pages/AuthCallback.tsx
-// Add route: { path: "/auth/callback", Component: AuthCallback }
-// This handles the redirect from Google OAuth.
+// src/app/pages/AuthCallback.tsx
+// Google OAuth lands here after the backend sets the HttpOnly cookie and redirects.
+// We just call /auth/me (cookie is sent automatically) to get the user profile.
 
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useAuth } from "../auth/AuthContext";
-import { authAPI } from "../services/api";
-import { buildSessionFromToken } from "../auth/authService";
+import { fetchUserAfterGoogleAuth } from "../auth/authService";
 
 export function AuthCallback() {
-  const [params] = useSearchParams();
-  const navigate = useNavigate();
-  const { setSession } = useAuth();
+  const [params]    = useSearchParams();
+  const navigate    = useNavigate();
+  const { setUser } = useAuth();
 
   useEffect(() => {
-    // FIX #1: Backend sends ?code=…&status=… — NOT ?token=…
-    const code   = params.get("code");
     const status = params.get("status"); // "dashboard" | "onboarding"
     const error  = params.get("error");
 
-    if (error || !code) {
+    if (error) {
       navigate("/login?error=google_failed", { replace: true });
       return;
     }
 
-    // FIX #2: Exchange the one-time code for a real JWT via the backend endpoint.
-    //         Previously the code value was incorrectly used directly as a Bearer token.
-    (authAPI.exchangeCode(code) as any)
-      .then(async (exchangeRes: any) => {
-        const token = exchangeRes.data?.token;
-        if (!token) throw new Error("No token in exchange response");
-
-        // FIX #3: Use the real JWT expiry from the token instead of a hardcoded 30-day value.
-        const session = await buildSessionFromToken(token);
-        setSession(session, false);
-
+    // Cookie is already set by the backend — just fetch the user profile
+    fetchUserAfterGoogleAuth()
+      .then((user) => {
+        if (!user) throw new Error("No user");
+        setUser(user);
         navigate(status === "dashboard" ? "/dashboard" : "/onboarding", { replace: true });
       })
       .catch(() => {
@@ -51,11 +42,8 @@ export function AuthCallback() {
         <p className="text-sm text-gray-500">Completing sign-in…</p>
         <div className="flex gap-1.5">
           {[0, 1, 2].map(i => (
-            <div
-              key={i}
-              className="w-2 h-2 rounded-full bg-[#1A5F3D] animate-bounce"
-              style={{ animationDelay: `${i * 0.15}s` }}
-            />
+            <div key={i} className="w-2 h-2 rounded-full bg-[#1A5F3D] animate-bounce"
+              style={{ animationDelay: `${i * 0.15}s` }} />
           ))}
         </div>
       </div>

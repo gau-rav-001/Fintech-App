@@ -1,94 +1,90 @@
 // src/app/auth/AuthContext.tsx
+// Fix #9: isAuthenticated is now split into isUserAuthenticated and isAdminAuthenticated.
+//         A logged-in admin no longer makes isAuthenticated true for user-only guards.
+// Fix #5: Sessions are restored by calling /auth/me (cookie-based), not from localStorage.
+
 import {
   createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode,
 } from "react";
 import {
-  type AuthUser, type AuthSession, type UserRole,
-  getStoredSession, getStoredAdminSession,
+  type AuthUser,
+  restoreSession, restoreAdminSession,
   logout as serviceLogout, adminLogout as serviceAdminLogout,
-  storeSession, storeAdminSession,
 } from "./authService";
 
 interface AuthContextValue {
-  user:            AuthUser | null;
-  session:         AuthSession | null;
-  isAuthenticated: boolean;
-  isAdmin:         boolean;
-  role:            UserRole | null;
-  isLoading:       boolean;
-  setSession:      (session: AuthSession, remember: boolean) => void;
-  setAdminSession: (session: AuthSession, remember: boolean) => void;
-  logout:          () => void;
-  adminLogout:     () => void;
-  updateUser:      (patch: Partial<AuthUser>) => void;
-  userSession:     AuthSession | null;
-  adminSession:    AuthSession | null;
+  // User session
+  user:                 AuthUser | null;
+  isUserAuthenticated:  boolean;
+
+  // Admin session
+  adminUser:            AuthUser | null;
+  isAdminAuthenticated: boolean;
+
+  // Shared
+  isLoading:            boolean;
+  role:                 "user" | "admin" | null;
+
+  // Actions
+  setUser:      (user: AuthUser | null) => void;
+  setAdminUser: (user: AuthUser | null) => void;
+  logout:       () => Promise<void>;
+  adminLogout:  () => Promise<void>;
+  updateUser:   (patch: Partial<AuthUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [userSessionState,  setUserSessionState]  = useState<AuthSession | null>(null);
-  const [adminSessionState, setAdminSessionState] = useState<AuthSession | null>(null);
-  const [isLoading,         setIsLoading]         = useState(true);
+  const [user,      setUserState]      = useState<AuthUser | null>(null);
+  const [adminUser, setAdminUserState] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading]      = useState(true);
 
+  // Fix #5: restore sessions by hitting /auth/me (relies on HttpOnly cookie)
   useEffect(() => {
-    setUserSessionState(getStoredSession());
-    setAdminSessionState(getStoredAdminSession());
-    setIsLoading(false);
+    Promise.all([restoreSession(), restoreAdminSession()])
+      .then(([u, a]) => {
+        setUserState(u);
+        setAdminUserState(a);
+      })
+      .catch(() => { /* network down — leave as null */ })
+      .finally(() => setIsLoading(false));
   }, []);
 
-  const setSession = useCallback((s: AuthSession, remember: boolean) => {
-    storeSession(s, remember);
-    setUserSessionState(s);
-  }, []);
-
-  const setAdminSession = useCallback((s: AuthSession, remember: boolean) => {
-    storeAdminSession(s, remember);
-    setAdminSessionState(s);
-  }, []);
+  const setUser = useCallback((u: AuthUser | null) => setUserState(u), []);
+  const setAdminUser = useCallback((u: AuthUser | null) => setAdminUserState(u), []);
 
   const logout = useCallback(async () => {
-    await serviceLogout();
-    setUserSessionState(null);
+    try { await serviceLogout(); } catch {}
+    setUserState(null);
   }, []);
 
-  const adminLogout = useCallback(() => {
-    serviceAdminLogout();
-    setAdminSessionState(null);
+  const adminLogout = useCallback(async () => {
+    try { await serviceAdminLogout(); } catch {}
+    setAdminUserState(null);
   }, []);
 
   const updateUser = useCallback((patch: Partial<AuthUser>) => {
-    setUserSessionState((prev) => {
-      if (!prev) return prev;
-      const updated = { ...prev, user: { ...prev.user, ...patch } };
-      // FIX: read the remember flag from the session itself.
-      //      The old code checked localStorage.getItem("sf_session"), but user
-      //      sessions are stored under "sf_session" in sessionStorage (not localStorage),
-      //      so that check always returned false and silently reset persistence.
-      storeSession(updated, updated.remember ?? false);
-      return updated;
-    });
+    setUserState((prev) => prev ? { ...prev, ...patch } : prev);
   }, []);
 
   const value = useMemo<AuthContextValue>(() => ({
-    user:            userSessionState?.user ?? null,
-    session:         userSessionState,
-    isAuthenticated: !!userSessionState || !!adminSessionState,
-    isAdmin:         adminSessionState?.user?.role === "admin",
-    role:            userSessionState?.user?.role ?? adminSessionState?.user?.role ?? null,
+    user,
+    isUserAuthenticated:  !!user,
+
+    adminUser,
+    isAdminAuthenticated: !!adminUser,
+
+    // Fix #9: role derived from the correct session, not either
+    role: user?.role ?? adminUser?.role ?? null,
+
     isLoading,
-    setSession,
-    setAdminSession,
+    setUser,
+    setAdminUser,
     logout,
     adminLogout,
     updateUser,
-    userSession:  userSessionState,
-    adminSession: adminSessionState,
-  }), [
-    userSessionState, adminSessionState, isLoading,
-    setSession, setAdminSession, logout, adminLogout, updateUser,
-  ]);
+  }), [user, adminUser, isLoading, setUser, setAdminUser, logout, adminLogout, updateUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
@@ -99,18 +95,19 @@ export function useAuth(): AuthContextValue {
   return ctx;
 }
 
+// Convenience hooks
 export function useUser() {
-  const { user, isAuthenticated, isLoading } = useAuth();
-  return { user, isAuthenticated, isLoading };
+  const { user, isUserAuthenticated, isLoading } = useAuth();
+  return { user, isAuthenticated: isUserAuthenticated, isLoading };
 }
 
 export function useAdminAuth() {
-  const { adminSession, isLoading, setAdminSession, adminLogout } = useAuth();
+  const { adminUser, isAdminAuthenticated, isLoading, setAdminUser, adminLogout } = useAuth();
   return {
-    adminUser:       adminSession?.user ?? null,
-    isAdminLoggedIn: !!adminSession,
+    adminUser,
+    isAdminLoggedIn: isAdminAuthenticated,
     isLoading,
-    setAdminSession,
+    setAdminUser,
     adminLogout,
   };
 }

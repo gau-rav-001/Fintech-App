@@ -11,6 +11,65 @@ const {
 // All user routes require a valid JWT
 router.use(authenticate);
 
+// ── Shared JSONB item validators (Fix #6) ─────────────────────────────────────
+const expenseItemSchema = body("expenses").optional().isArray()
+  .withMessage("Expenses must be an array.")
+  .custom((arr) => {
+    for (const item of arr) {
+      if (!item.category || typeof item.category !== "string")
+        throw new Error("Each expense must have a string 'category'.");
+      const amount = parseFloat(item.amount);
+      if (isNaN(amount) || amount < 0)
+        throw new Error("Each expense 'amount' must be a non-negative number.");
+    }
+    return true;
+  });
+
+const investmentItemSchema = body("investments").optional().isArray()
+  .withMessage("Investments must be an array.")
+  .custom((arr) => {
+    for (const item of arr) {
+      if (!item.type || typeof item.type !== "string")
+        throw new Error("Each investment must have a string 'type'.");
+      const invested = parseFloat(item.investedAmount);
+      if (isNaN(invested) || invested < 0)
+        throw new Error("Each investment 'investedAmount' must be a non-negative number.");
+    }
+    return true;
+  });
+
+const goalItemSchema = body("goals").optional().isArray()
+  .withMessage("Goals must be an array.")
+  .custom((arr) => {
+    for (const item of arr) {
+      if (!item.name || typeof item.name !== "string")
+        throw new Error("Each goal must have a string 'name'.");
+      const target = parseFloat(item.targetAmount);
+      if (isNaN(target) || target <= 0)
+        throw new Error("Each goal 'targetAmount' must be a positive number.");
+    }
+    return true;
+  });
+
+const loanItemSchema = body("loans").optional().isArray()
+  .withMessage("Loans must be an array.")
+  .custom((arr) => {
+    for (const item of arr) {
+      if (!item.type || typeof item.type !== "string")
+        throw new Error("Each loan must have a string 'type'.");
+      const outstanding = parseFloat(item.outstandingAmount);
+      if (isNaN(outstanding) || outstanding < 0)
+        throw new Error("Each loan 'outstandingAmount' must be a non-negative number.");
+    }
+    return true;
+  });
+
+// Fix #7: profilePicture must be a valid HTTPS URL
+const profilePictureRule = body("profilePicture")
+  .optional()
+  .isURL({ protocols: ["https"], require_protocol: true })
+  .withMessage("Profile picture must be a valid HTTPS URL.");
+
 // ── POST /api/user/onboarding ─────────────────────────────────────────────────
 router.post("/onboarding", [
   body("dob")
@@ -72,29 +131,18 @@ router.post("/onboarding", [
     .isIn(["conservative", "balanced", "aggressive"])
     .withMessage("Investment style must be one of: conservative, balanced, aggressive."),
 
-  // FIX: min changed from 0 to 1 to match the DB CHECK constraint
-  //      (risk_horizon_years > 0). Sending 0 previously passed route
-  //      validation but then caused a DB constraint violation and returned
-  //      a confusing 500 instead of a clean 400.
   body("riskProfile.timeHorizonYears")
     .optional()
     .isInt({ min: 1, max: 50 }).withMessage("Time horizon must be between 1 and 50 years."),
 
-  body("expenses")
-    .optional()
-    .isArray().withMessage("Expenses must be an array."),
+  // Fix #6: validate JSONB array item shapes
+  expenseItemSchema,
+  investmentItemSchema,
+  goalItemSchema,
+  loanItemSchema,
 
-  body("investments")
-    .optional()
-    .isArray().withMessage("Investments must be an array."),
-
-  body("goals")
-    .optional()
-    .isArray().withMessage("Goals must be an array."),
-
-  body("loans")
-    .optional()
-    .isArray().withMessage("Loans must be an array."),
+  // Fix #7
+  profilePictureRule,
 
 ], validate, onboarding);
 
@@ -112,19 +160,21 @@ router.put("/update", [
   body("riskProfile.tolerance").optional().isIn(["low", "medium", "high"]),
   body("riskProfile.investmentStyle").optional()
     .isIn(["conservative", "balanced", "aggressive"]),
-  // FIX: same min:1 guard on the update route
   body("riskProfile.timeHorizonYears")
     .optional()
     .isInt({ min: 1, max: 50 }).withMessage("Time horizon must be between 1 and 50 years."),
+
+  // Fix #6 + #7 on update too
+  expenseItemSchema,
+  investmentItemSchema,
+  goalItemSchema,
+  loanItemSchema,
+  profilePictureRule,
 ], validate, updateProfile);
 
 // ── Password ──────────────────────────────────────────────────────────────────
 router.post("/change-password", [
   body("currentPassword").notEmpty().withMessage("Current password is required."),
-
-  // FIX: apply the same password-strength rules as signup.
-  //      Previously only isLength({ min: 8 }) was checked, allowing users to
-  //      downgrade to a weaker password after account creation.
   body("newPassword")
     .isLength({ min: 8 }).withMessage("New password must be at least 8 characters.")
     .matches(/[A-Z]/).withMessage("New password must contain at least one uppercase letter.")
