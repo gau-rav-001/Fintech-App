@@ -1,60 +1,137 @@
 // backend/utils/email.js
+//
+// Dev  → Ethereal Email (fake SMTP, zero setup, no real emails sent)
+//         OTP + preview link both printed to your terminal
+// Prod → Resend (resend.com — 3,000 free emails/month, 1-min setup)
+//         Set RESEND_API_KEY in backend/.env
+//         Fallback: any SMTP via EMAIL_HOST / EMAIL_USER / EMAIL_PASS
+//
 const nodemailer = require("nodemailer");
 
 const isDev = process.env.NODE_ENV !== "production";
 
-// ── Create transporter ────────────────────────────────────────────────────────
-function createTransporter() {
-  if (process.env.EMAIL_SERVICE === "gmail" || !process.env.EMAIL_HOST) {
-    return nodemailer.createTransport({
-      service: "gmail",
-      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-      ...(isDev && { tls: { rejectUnauthorized: false } }),
-    });
-  }
-  return nodemailer.createTransport({
-    host:   process.env.EMAIL_HOST,
-    port:   parseInt(process.env.EMAIL_PORT || "587"),
-    secure: process.env.EMAIL_SECURE === "true",
-    auth:   { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-    ...(isDev && { tls: { rejectUnauthorized: false } }),
+// ─────────────────────────────────────────────────────────────────────────────
+// DEV — Ethereal (auto-created test account, no signup needed)
+// ─────────────────────────────────────────────────────────────────────────────
+let _etherealTransporter = null;
+
+async function getEtherealTransporter() {
+  if (_etherealTransporter) return _etherealTransporter;
+
+  // Creates a unique test account on ethereal.email each server start
+  const testAccount = await nodemailer.createTestAccount();
+  _etherealTransporter = nodemailer.createTransport({
+    host: "smtp.ethereal.email",
+    port: 587,
+    secure: false,
+    auth: {
+      user: testAccount.user,
+      pass: testAccount.pass,
+    },
   });
+
+  console.log("\n📬 Ethereal test account created:");
+  console.log("   User:", testAccount.user);
+  console.log("   Pass:", testAccount.pass);
+  console.log("   Web:  https://ethereal.email/messages  (view sent emails)\n");
+
+  return _etherealTransporter;
 }
 
-const transporter = createTransporter();
+// ─────────────────────────────────────────────────────────────────────────────
+// PROD — Resend via SMTP bridge
+// Get your API key at resend.com → free tier = 3,000 emails/month
+// Set in backend/.env:
+//   RESEND_API_KEY=re_xxxxxxxxxxxx
+//   EMAIL_FROM=noreply@yourdomain.com   (must be a verified domain in Resend)
+// ─────────────────────────────────────────────────────────────────────────────
+let _prodTransporter = null;
 
-transporter.verify((err) => {
-  if (err) {
-    console.warn("⚠️  Email transporter not ready:", err.message);
-    console.warn("   → OTPs will be logged to console in dev mode.");
-  } else {
-    console.log("✅ Email transporter ready —", process.env.EMAIL_USER);
+function getProdTransporter() {
+  if (_prodTransporter) return _prodTransporter;
+
+  if (process.env.RESEND_API_KEY) {
+    // Resend SMTP bridge — no need to install the Resend SDK
+    _prodTransporter = nodemailer.createTransport({
+      host:   "smtp.resend.com",
+      port:   465,
+      secure: true,
+      auth: {
+        user: "resend",                          // always the literal string "resend"
+        pass: process.env.RESEND_API_KEY,
+      },
+    });
+    console.log("✅ Email: using Resend (SMTP bridge)");
+    return _prodTransporter;
   }
-});
 
-// ── Dev helper: always print OTP to console ───────────────────────────────────
-// This means you never get locked out in development even if email is broken.
-function devLog(toEmail, otp, label = "OTP") {
+  // Fallback: any SMTP (Gmail, SendGrid, Brevo, etc.)
+  // For Gmail use an App Password and port 465
+  _prodTransporter = nodemailer.createTransport({
+    host:   process.env.EMAIL_HOST   || "smtp.gmail.com",
+    port:   parseInt(process.env.EMAIL_PORT || "465"),
+    secure: process.env.EMAIL_SECURE !== "false",
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+    tls: { minVersion: "TLSv1.2" },
+  });
+
+  _prodTransporter.verify((err) => {
+    if (err) {
+      console.warn("⚠️  SMTP transporter not ready:", err.message);
+    } else {
+      console.log("✅ Email: using SMTP —", process.env.EMAIL_USER);
+    }
+  });
+
+  return _prodTransporter;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared send helper
+// ─────────────────────────────────────────────────────────────────────────────
+async function sendMail(to, subject, text, html) {
+  const from = process.env.EMAIL_FROM
+    || (isDev ? "SmartFinance <test@smartfinance.dev>" : `"SmartFinance" <${process.env.EMAIL_USER}>`);
+
   if (isDev) {
-    console.log(`\n${"─".repeat(50)}`);
-    console.log(`📬 DEV ${label} for ${toEmail}`);
-    console.log(`   Code: ${otp}`);
-    console.log(`${"─".repeat(50)}\n`);
+    const transport = await getEtherealTransporter();
+    const info = await transport.sendMail({ from, to, subject, text, html });
+
+    // Ethereal preview URL — click it to see the formatted email in browser
+    const previewUrl = nodemailer.getTestMessageUrl(info);
+    console.log(`\n${"─".repeat(60)}`);
+    console.log(`📨 Email sent (Ethereal preview):`);
+    console.log(`   To     : ${to}`);
+    console.log(`   Subject: ${subject}`);
+    console.log(`   Preview: ${previewUrl}`);
+    console.log(`${"─".repeat(60)}\n`);
+    return info;
   }
+
+  // Production
+  const transport = getProdTransporter();
+  return transport.sendMail({ from, to, subject, text, html });
 }
 
-// ── Send OTP Email ────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// OTP email — also logs the code to terminal in dev
+// ─────────────────────────────────────────────────────────────────────────────
 async function sendOTPEmail(toEmail, otp, userName = "User") {
-  // Always log in dev — if email also works, both channels deliver the code
-  devLog(toEmail, otp, "OTP");
+  // Always print OTP to terminal — useful in dev even with Ethereal
+  if (isDev) {
+    console.log(`\n${"─".repeat(60)}`);
+    console.log(`🔑  OTP for ${toEmail}: ${otp}`);
+    console.log(`${"─".repeat(60)}\n`);
+  }
 
-  try {
-    await transporter.sendMail({
-      from:    `"SmartFinance" <${process.env.EMAIL_USER}>`,
-      to:      toEmail,
-      subject: "Your SmartFinance OTP Verification Code",
-      text:    `Your OTP code is: ${otp}\nValid for 5 minutes. Do not share it.`,
-      html: `
+  await sendMail(
+    toEmail,
+    "Your SmartFinance OTP Code",
+    `Your OTP is: ${otp}\nValid for 5 minutes. Do not share it.`,
+    `
 <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;background:#f7f9fb;padding:32px;border-radius:12px;">
   <div style="text-align:center;margin-bottom:24px;">
     <div style="display:inline-block;background:linear-gradient(135deg,#1A5F3D,#3FAF7D);padding:12px 28px;border-radius:10px;">
@@ -70,38 +147,26 @@ async function sendOTPEmail(toEmail, otp, userName = "User") {
     <p style="color:#6b7280;font-size:13px;text-align:center;">Valid for <strong>5 minutes</strong>. Do not share this code.</p>
   </div>
   <p style="color:#9ca3af;font-size:11px;text-align:center;margin-top:16px;">SmartFinance — Your trusted financial partner</p>
-</div>`,
-    });
-  } catch (err) {
-    // In dev, email failure is non-fatal — OTP was already logged to console
-    if (isDev) {
-      console.warn("📧 Email send failed (dev):", err.message, "— use console OTP above.");
-    } else {
-      throw err; // In production, fail loudly
-    }
-  }
+</div>`
+  );
 }
 
-// ── Send Welcome Email ────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Welcome email
+// ─────────────────────────────────────────────────────────────────────────────
 async function sendWelcomeEmail(toEmail, userName = "User") {
-  try {
-    await transporter.sendMail({
-      from:    `"SmartFinance" <${process.env.EMAIL_USER}>`,
-      to:      toEmail,
-      subject: "Welcome to SmartFinance!",
-      text:    `Welcome, ${userName}! Your account is verified and ready to use.`,
-      html: `
+  await sendMail(
+    toEmail,
+    "Welcome to SmartFinance!",
+    `Welcome, ${userName}! Your account is verified and ready to use.`,
+    `
 <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;background:#f7f9fb;padding:32px;border-radius:12px;">
   <div style="background:#fff;border-radius:12px;padding:32px;border:1px solid #e5e7eb;">
     <h2 style="color:#1A5F3D;">Welcome, ${userName}! 🎉</h2>
     <p style="color:#6b7280;">Your SmartFinance account is verified. Start your financial journey today.</p>
   </div>
-</div>`,
-    });
-  } catch (err) {
-    if (!isDev) throw err;
-    console.warn("📧 Welcome email failed (dev):", err.message);
-  }
+</div>`
+  );
 }
 
 module.exports = { sendOTPEmail, sendWelcomeEmail };

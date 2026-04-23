@@ -7,21 +7,41 @@ const { signToken, buildPayload } = require("../utils/jwt");
 const { generateOTP, saveOTP, verifyOTP } = require("../utils/otp");
 const { sendOTPEmail }                    = require("../utils/email");
 const { ok, fail }                        = require("../utils/response");
-// ✅ FIX: Removed circular require("./authController") — admin uses its own cookie helpers below.
 
+// ── Admin session cookie ──────────────────────────────────────────────────────
 const ADMIN_COOKIE = "sf_admin_token";
 const ADMIN_COOKIE_OPTS = {
   httpOnly: true,
   secure:   process.env.COOKIE_SECURE === "true",
   sameSite: process.env.COOKIE_SAME_SITE || "lax",
-  maxAge:   4 * 60 * 60 * 1000, // 4 hours — shorter for admin sessions
+  maxAge:   4 * 60 * 60 * 1000,   // 4 hours for admin sessions
   path:     "/",
 };
 
-// ── POST /api/admin/login — Step 1: validate credentials, send OTP ────────────
+// ── Email whitelist ───────────────────────────────────────────────────────────
+// Only emails listed in ADMIN_ALLOWED_EMAILS (comma-separated) can log in.
+// This is enforced BEFORE the password check so no DB timing info leaks.
+function isAllowedAdminEmail(email) {
+  const raw = process.env.ADMIN_ALLOWED_EMAILS || "kumbharegaurav100@gmail.com";
+  const allowed = raw.split(",").map(e => e.trim().toLowerCase());
+  return allowed.includes(email.toLowerCase());
+}
+
+// ── POST /api/admin/login — Step 1: check whitelist + credentials, send OTP ──
 const adminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    // Whitelist check first — unknown emails get the same generic error
+    if (!isAllowedAdminEmail(email)) {
+      // Still run a dummy compare to prevent timing-based email enumeration
+      await Admin.comparePassword(
+        "$2b$12$dummyhashtopreventtimingattack00000000000000000",
+        password
+      ).catch(() => {});
+      return fail(res, "Invalid email or password.", 401);
+    }
+
     const admin = await Admin.findByEmailWithPassword(email);
 
     if (!admin || !admin.isActive) {
@@ -35,7 +55,7 @@ const adminLogin = async (req, res) => {
     const match = await Admin.comparePassword(admin.passwordHash, password);
     if (!match) return fail(res, "Invalid email or password.", 401);
 
-    // Credentials valid — send OTP instead of issuing JWT immediately
+    // Credentials valid — send OTP via Ethereal (dev) or Resend (prod)
     const otp = generateOTP();
     await saveOTP(`admin:${email}`, otp);
     await sendOTPEmail(email, otp, admin.fullName || "Admin");
@@ -47,10 +67,15 @@ const adminLogin = async (req, res) => {
   }
 };
 
-// ── POST /api/admin/verify-otp — Step 2: verify OTP, issue cookie ─────────────
+// ── POST /api/admin/verify-otp — Step 2: verify OTP, issue session cookie ────
 const adminVerifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
+
+    // Re-check whitelist on verify too (belt + suspenders)
+    if (!isAllowedAdminEmail(email)) {
+      return fail(res, "Access denied.", 403);
+    }
 
     const result = await verifyOTP(`admin:${email}`, otp);
     if (!result.valid) return fail(res, result.error, 400);
@@ -62,7 +87,6 @@ const adminVerifyOTP = async (req, res) => {
     const token = signToken(buildPayload({ ...safeAdmin, role: "admin" }));
 
     res.cookie(ADMIN_COOKIE, token, ADMIN_COOKIE_OPTS);
-
     return ok(res, { admin: safeAdmin }, "Admin login successful.");
   } catch (err) {
     console.error("adminVerifyOTP:", err);
@@ -70,7 +94,7 @@ const adminVerifyOTP = async (req, res) => {
   }
 };
 
-// ── POST /api/admin/logout ─────────────────────────────────────────────────────
+// ── POST /api/admin/logout ────────────────────────────────────────────────────
 const adminLogout = (req, res) => {
   res.clearCookie(ADMIN_COOKIE, { httpOnly: true, path: "/" });
   return ok(res, {}, "Logged out.");
@@ -83,16 +107,11 @@ const getAllUsers = async (req, res) => {
   try {
     const { page = 1, search = "", profileComplete } = req.query;
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-
     const pcFilter = profileComplete !== undefined
-      ? profileComplete === "true"
-      : undefined;
+      ? profileComplete === "true" : undefined;
 
     const { users, total } = await User.findAll({
-      page:    parseInt(page),
-      limit,
-      search,
-      profileComplete: pcFilter,
+      page: parseInt(page), limit, search, profileComplete: pcFilter,
     });
 
     return ok(res, {
@@ -125,18 +144,16 @@ const getPlatformStats = async (req, res) => {
   try {
     const { rows } = await db.query(`
       SELECT
-        COUNT(*)                                                    AS total_users,
-        COUNT(*) FILTER (WHERE is_profile_complete = TRUE)         AS completed_profiles,
-        COUNT(*) FILTER (WHERE provider = 'google')                AS google_users,
-        COUNT(*) FILTER (WHERE provider = 'email')                 AS email_users,
+        COUNT(*)                                                         AS total_users,
+        COUNT(*) FILTER (WHERE is_profile_complete = TRUE)              AS completed_profiles,
+        COUNT(*) FILTER (WHERE provider = 'google')                     AS google_users,
+        COUNT(*) FILTER (WHERE provider = 'email')                      AS email_users,
         COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days') AS new_this_week
       FROM users
     `);
-
     const s = rows[0];
     const total     = parseInt(s.total_users);
     const completed = parseInt(s.completed_profiles);
-
     return ok(res, {
       totalUsers:         total,
       completedProfiles:  completed,
