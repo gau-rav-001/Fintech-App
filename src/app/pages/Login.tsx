@@ -195,15 +195,15 @@ export function Login() {
   }
 
   const inputCls = (hasErr: boolean) =>
-    `w-full pl-12 pr-4 py-3 border rounded-xl text-sm outline-none transition-all bg-white ${
+    `w-full pl-12 pr-4 py-3 border rounded-xl text-sm outline-none transition-all bg-card text-foreground ${
       hasErr
         ? "border-red-400 focus:ring-2 focus:ring-red-300"
-        : "border-gray-200 focus:ring-2 focus:ring-[#1A5F3D]/30 focus:border-[#1A5F3D]"
+        : "border-border focus:ring-2 focus:ring-primary/30 focus:border-primary"
     }`;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f0faf4] via-white to-[#e8f5ee] flex">
-      {/* Left panel */}
+    <div className="min-h-screen bg-gradient-to-br from-[#f0faf4] via-background to-[#e8f5ee] dark:from-background dark:via-background dark:to-background flex">
+      {/* Left panel — intentional permanent dark-green brand panel, stays as literal colors */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#1A5F3D] to-[#0d3b25] flex-col justify-center items-center p-16 text-white">
         <div className="max-w-md">
           <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center mb-8">
@@ -229,7 +229,7 @@ export function Login() {
           {success && (
             <motion.div
               initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-2 mb-4 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700"
+              className="flex items-center gap-2 mb-4 p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900/40 rounded-xl text-sm text-green-700 dark:text-green-400"
             >
               <CheckCircle className="w-4 h-4 shrink-0" /> {success}
             </motion.div>
@@ -243,38 +243,38 @@ export function Login() {
                 initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.25 }}
               >
-                <h2 className="text-3xl font-bold text-gray-900 mb-2">Sign in</h2>
-                <p className="text-gray-500 mb-8">New here?{" "}
-                  <Link to="/signup" className="text-[#1A5F3D] font-semibold hover:underline">Create an account</Link>
+                <h2 className="text-3xl font-bold text-foreground mb-2">Sign in</h2>
+                <p className="text-muted-foreground mb-8">New here?{" "}
+                  <Link to="/signup" className="text-primary font-semibold hover:underline">Create an account</Link>
                 </p>
 
                 {error && (
-                  <div className="flex items-start gap-2 mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+                  <div className="flex items-start gap-2 mb-4 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 rounded-xl">
                     <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
-                    <p className="text-sm text-red-700">{error}</p>
+                    <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
                   </div>
                 )}
 
                 {/* Google sign-in */}
                 <button
                   onClick={loginWithGoogle}
-                  className="w-full flex items-center justify-center gap-3 py-3 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all mb-6"
+                  className="w-full flex items-center justify-center gap-3 py-3 border border-border rounded-xl text-sm font-medium text-foreground/80 hover:bg-muted transition-all mb-6"
                 >
                   <GoogleIcon />
                   Continue with Google
                 </button>
 
                 <div className="relative flex items-center gap-3 mb-6">
-                  <div className="flex-1 h-px bg-gray-200" />
-                  <span className="text-xs text-gray-400 font-medium">or sign in with email</span>
-                  <div className="flex-1 h-px bg-gray-200" />
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-xs text-muted-foreground/70 font-medium">or sign in with email</span>
+                  <div className="flex-1 h-px bg-border" />
                 </div>
 
                 <form onSubmit={handleCredentialSubmit} className="space-y-5" noValidate>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                    <label className="block text-sm font-medium text-foreground/80 mb-2">Email Address</label>
                     <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                       <input type="email" value={email}
                         onChange={(e) => { setEmail(e.target.value); setEmailErr(null); setError(null); }}
                         onBlur={() => setEmailErr(validateEmail(email))}
@@ -284,15 +284,15 @@ export function Login() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <label className="block text-sm font-medium text-foreground/80 mb-2">Password</label>
                     <div className="relative">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                       <input type={showPw ? "text" : "password"} value={password}
                         onChange={(e) => { setPassword(e.target.value); setPwErr(null); setError(null); }}
                         onBlur={() => setPwErr(validatePassword(password))}
                         className={`${inputCls(!!pwErr)} pr-12`} placeholder="••••••••" autoComplete="current-password" />
                       <button type="button" onClick={() => setShowPw((v) => !v)} tabIndex={-1}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                         {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
@@ -304,7 +304,7 @@ export function Login() {
                     <button
                       type="button"
                       onClick={() => { setForgotPhase("enter-email"); setForgotEmail(email); }}
-                      className="text-sm text-[#1A5F3D] hover:underline"
+                      className="text-sm text-primary hover:underline"
                     >
                       Forgot password?
                     </button>
@@ -321,24 +321,24 @@ export function Login() {
                         transition={{ duration: 0.25 }}
                         className="overflow-hidden"
                       >
-                        <div className="p-4 rounded-xl bg-[#f0faf4] border border-[#1A5F3D]/20">
+                        <div className="p-4 rounded-xl bg-[#f0faf4] dark:bg-primary/10 border border-primary/20">
 
                           {forgotPhase === "enter-email" && (
                             <div>
-                              <p className="text-sm font-semibold text-gray-800 mb-1">Reset your password</p>
-                              <p className="text-xs text-gray-500 mb-3">
+                              <p className="text-sm font-semibold text-foreground/90 mb-1">Reset your password</p>
+                              <p className="text-xs text-muted-foreground mb-3">
                                 Enter your email and we'll send a secure reset link valid for 15 minutes.
                               </p>
 
                               {forgotError && (
-                                <div className="flex items-center gap-2 mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+                                <div className="flex items-center gap-2 mb-3 p-2 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 rounded-lg">
                                   <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
-                                  <p className="text-xs text-red-600">{forgotError}</p>
+                                  <p className="text-xs text-red-600 dark:text-red-400">{forgotError}</p>
                                 </div>
                               )}
 
                               <div className="relative mb-2">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                 <input
                                   type="email"
                                   value={forgotEmail}
@@ -346,10 +346,10 @@ export function Login() {
                                   onBlur={() => setForgotEmailErr(validateEmail(forgotEmail))}
                                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleForgotSubmit(); } }}
                                   placeholder="your@email.com"
-                                  className={`w-full pl-9 pr-3 py-2 text-sm border rounded-lg outline-none transition-all bg-white ${
+                                  className={`w-full pl-9 pr-3 py-2 text-sm border rounded-lg outline-none transition-all bg-card text-foreground ${
                                     forgotEmailErr
                                       ? "border-red-400 focus:ring-1 focus:ring-red-300"
-                                      : "border-gray-200 focus:ring-1 focus:ring-[#1A5F3D]/40 focus:border-[#1A5F3D]"
+                                      : "border-border focus:ring-1 focus:ring-primary/40 focus:border-primary"
                                   }`}
                                   autoComplete="email"
                                 />
@@ -364,14 +364,14 @@ export function Login() {
                                   type="button"
                                   onClick={handleForgotSubmit}
                                   disabled={forgotLoading}
-                                  className="flex-1 py-2 bg-gradient-to-r from-[#1A5F3D] to-[#2D7A4E] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-70 transition-all hover:shadow-md"
+                                  className="flex-1 py-2 bg-gradient-to-r from-primary to-[#2D7A4E] text-white rounded-lg text-sm font-semibold flex items-center justify-center gap-1.5 disabled:opacity-70 transition-all hover:shadow-md"
                                 >
                                   {forgotLoading ? <><Spinner /> Sending…</> : <>Send Reset Link <ArrowRight className="w-3.5 h-3.5" /></>}
                                 </button>
                                 <button
                                   type="button"
                                   onClick={closeForgot}
-                                  className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg bg-white transition-colors"
+                                  className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground border border-border rounded-lg bg-card transition-colors"
                                 >
                                   Cancel
                                 </button>
@@ -381,18 +381,18 @@ export function Login() {
 
                           {forgotPhase === "sent" && (
                             <div className="text-center py-2">
-                              <div className="w-10 h-10 rounded-full bg-[#1A5F3D]/10 flex items-center justify-center mx-auto mb-3">
-                                <CheckCircle className="w-5 h-5 text-[#1A5F3D]" />
+                              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                                <CheckCircle className="w-5 h-5 text-primary" />
                               </div>
-                              <p className="text-sm font-semibold text-gray-800 mb-1">Check your inbox</p>
-                              <p className="text-xs text-gray-500 mb-3">
-                                If <span className="font-medium text-gray-700">{forgotEmail}</span> is registered,
+                              <p className="text-sm font-semibold text-foreground/90 mb-1">Check your inbox</p>
+                              <p className="text-xs text-muted-foreground mb-3">
+                                If <span className="font-medium text-foreground/80">{forgotEmail}</span> is registered,
                                 you'll receive a reset link shortly.
                               </p>
                               <button
                                 type="button"
                                 onClick={closeForgot}
-                                className="text-xs text-[#1A5F3D] hover:underline"
+                                className="text-xs text-primary hover:underline"
                               >
                                 Back to sign in
                               </button>
@@ -405,7 +405,7 @@ export function Login() {
                   </AnimatePresence>
 
                   <button type="submit" disabled={loading}
-                    className="w-full py-3 bg-gradient-to-r from-[#1A5F3D] to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-[1.01] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:scale-100">
+                    className="w-full py-3 bg-gradient-to-r from-primary to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-[1.01] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:scale-100">
                     {loading ? <><Spinner /> Sending OTP…</> : <>Send OTP <ArrowRight className="w-5 h-5" /></>}
                   </button>
                 </form>
@@ -419,13 +419,13 @@ export function Login() {
                 exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.25 }}
               >
                 <div className="flex items-center justify-center mb-6">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center shadow-lg">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-[#3FAF7D] flex items-center justify-center shadow-lg">
                     <ShieldCheck className="w-8 h-8 text-white" />
                   </div>
                 </div>
-                <h2 className="text-3xl font-bold text-gray-900 mb-2 text-center">Verify Your Identity</h2>
-                <p className="text-gray-600 mb-1 text-center">We've sent a 6-digit code to</p>
-                <p className="text-center font-semibold text-[#1A5F3D] mb-8">{email}</p>
+                <h2 className="text-3xl font-bold text-foreground mb-2 text-center">Verify Your Identity</h2>
+                <p className="text-muted-foreground mb-1 text-center">We've sent a 6-digit code to</p>
+                <p className="text-center font-semibold text-primary mb-8">{email}</p>
 
                 <form onSubmit={handleOTPSubmit} className="space-y-6">
                   <div>
@@ -438,10 +438,10 @@ export function Login() {
                           onKeyDown={(e) => handleOTPKeyDown(i, e)}
                           className={`w-12 h-14 text-center text-xl font-bold border-2 rounded-xl outline-none transition-all ${
                             otpError
-                              ? "border-red-400 bg-red-50 text-red-700"
+                              ? "border-red-400 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400"
                               : digit
-                              ? "border-[#1A5F3D] bg-[#f0faf4] text-[#1A5F3D]"
-                              : "border-gray-300 hover:border-gray-400 focus:border-[#1A5F3D] focus:ring-2 focus:ring-[#1A5F3D]/20"
+                              ? "border-primary bg-[#f0faf4] dark:bg-primary/10 text-primary"
+                              : "border-border hover:border-muted-foreground/40 focus:border-primary focus:ring-2 focus:ring-primary/20 bg-card text-foreground"
                           }`}
                         />
                       ))}
@@ -453,17 +453,17 @@ export function Login() {
                     )}
                   </div>
 
-                  <p className="text-center text-xs text-gray-400">Code expires in 5 minutes</p>
+                  <p className="text-center text-xs text-muted-foreground/70">Code expires in 5 minutes</p>
 
                   <button type="submit" disabled={loading || otp.join("").length < 6}
-                    className="w-full py-3 bg-gradient-to-r from-[#1A5F3D] to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-[1.01] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:scale-100">
+                    className="w-full py-3 bg-gradient-to-r from-primary to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-[1.01] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:scale-100">
                     {loading ? <><Spinner /> Verifying…</> : <><ShieldCheck className="w-5 h-5" /> Verify &amp; Sign In</>}
                   </button>
 
                   <div className="flex items-center justify-center">
                     <button type="button" onClick={handleResendOTP}
                       disabled={loading || resendCooldown > 0}
-                      className="flex items-center gap-1.5 text-sm text-[#1A5F3D] hover:underline disabled:text-gray-400 disabled:no-underline transition-colors">
+                      className="flex items-center gap-1.5 text-sm text-primary hover:underline disabled:text-muted-foreground disabled:no-underline transition-colors">
                       <RefreshCw className="w-3.5 h-3.5" />
                       {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
                     </button>
@@ -471,7 +471,7 @@ export function Login() {
 
                   <button type="button"
                     onClick={() => { setPhase("credentials"); setOTP(["","","","","",""]); setOtpError(null); }}
-                    className="w-full text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                    className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors">
                     ← Back to login
                   </button>
                 </form>
@@ -484,14 +484,14 @@ export function Login() {
                 initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
                 className="text-center py-8"
               >
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center mx-auto mb-6 shadow-xl">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-[#3FAF7D] flex items-center justify-center mx-auto mb-6 shadow-xl">
                   <CheckCircle className="w-10 h-10 text-white" />
                 </div>
-                <h2 className="text-3xl font-bold text-gray-900 mb-2">You're in!</h2>
-                <p className="text-gray-600">Redirecting to your dashboard…</p>
+                <h2 className="text-3xl font-bold text-foreground mb-2">You're in!</h2>
+                <p className="text-muted-foreground">Redirecting to your dashboard…</p>
                 <div className="mt-6 flex justify-center gap-1.5">
                   {[0, 1, 2].map((i) => (
-                    <div key={i} className="w-2 h-2 rounded-full bg-[#1A5F3D] animate-bounce"
+                    <div key={i} className="w-2 h-2 rounded-full bg-primary animate-bounce"
                       style={{ animationDelay: `${i * 0.15}s` }} />
                   ))}
                 </div>

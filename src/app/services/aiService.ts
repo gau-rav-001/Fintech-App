@@ -71,6 +71,7 @@ export interface AIChatResponse {
   messageId: string;
   content: string;
   toolCalls?: AIToolCall[];
+  suggestions?: string[];
 }
 
 export const aiAPI = {

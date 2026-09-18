@@ -19,17 +19,27 @@ function formatConversation(row) {
   };
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DEMO_USER_ID = "00000000-0000-0000-0000-000000000001";
+
+function toSafeUserId(id) {
+  if (id && UUID_REGEX.test(id)) return id;
+  return DEMO_USER_ID;
+}
+
 const AIConversation = {
   async findByUserId(userId, { limit = 50, offset = 0 } = {}) {
+    const safeId = toSafeUserId(userId);
     const { rows } = await db.query(
       `SELECT ${CONVERSATION_COLS} FROM ai_conversations WHERE user_id = $1 
        ORDER BY updated_at DESC LIMIT $2 OFFSET $3`,
-      [userId, limit, offset]
+      [safeId, limit, offset]
     );
     return rows.map(formatConversation);
   },
 
   async findById(id) {
+    if (!id || !UUID_REGEX.test(id)) return null;
     const { rows } = await db.query(
       `SELECT ${CONVERSATION_COLS} FROM ai_conversations WHERE id = $1`,
       [id]
@@ -38,9 +48,10 @@ const AIConversation = {
   },
 
   async create(userId, title = "New Conversation") {
+    const safeId = toSafeUserId(userId);
     const { rows } = await db.query(
       `INSERT INTO ai_conversations (user_id, title) VALUES ($1, $2) RETURNING ${CONVERSATION_COLS}`,
-      [userId, title]
+      [safeId, title]
     );
     return formatConversation(rows[0]);
   },

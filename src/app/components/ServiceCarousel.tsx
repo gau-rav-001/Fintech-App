@@ -45,18 +45,18 @@ function ServiceCard({ icon, title, description, link, cta, slug }: ServiceItem)
       transition={{ duration: 0.28, ease: "easeOut" }}
       className={`
         relative group overflow-hidden
-        rounded-3xl border border-white/25
-        bg-white/70 backdrop-blur-xl
+        rounded-3xl border border-white/25 dark:border-border
+        bg-white/70 dark:bg-card/85 backdrop-blur-xl
         p-7 h-full
         shadow-[0_8px_30px_rgba(15,23,42,0.07)]
         hover:shadow-[0_20px_60px_rgba(26,95,61,0.14)]
-        hover:border-[#d8f46b]/50
+        hover:border-[#d8f46b]/50 dark:hover:border-primary/50
         transition-shadow duration-500
       `}
     >
       {/* Hover sheen */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-[#1A5F3D]/8 via-transparent to-[#B8E986]/15 pointer-events-none" />
-      <div className="absolute -top-16 -left-16 w-52 h-52 bg-white/20 blur-3xl opacity-0 group-hover:opacity-30 transition-opacity duration-700 pointer-events-none" />
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-[#1A5F3D]/8 dark:from-primary/12 via-transparent to-[#B8E986]/15 dark:to-primary/10 pointer-events-none" />
+      <div className="absolute -top-16 -left-16 w-52 h-52 bg-white/20 dark:bg-primary/10 blur-3xl opacity-0 group-hover:opacity-30 transition-opacity duration-700 pointer-events-none" />
 
       <div className="relative z-10 flex flex-col h-full">
         {/* Icon */}
@@ -65,17 +65,17 @@ function ServiceCard({ icon, title, description, link, cta, slug }: ServiceItem)
         </div>
 
         {/* Text */}
-        <h3 className="text-lg font-bold text-gray-900 mb-2.5 leading-tight">
+        <h3 className="text-lg font-bold text-foreground mb-2.5 leading-tight">
           {title}
         </h3>
-        <p className="text-sm text-gray-500 leading-6 flex-1 mb-5">
+        <p className="text-sm text-muted-foreground leading-6 flex-1 mb-5">
           {description}
         </p>
 
         {/* CTA */}
         <Link
           to={href}
-          className="inline-flex items-center gap-1.5 rounded-full bg-[#eef8f2] px-4 py-2 text-sm font-semibold text-[#1A5F3D] transition-all duration-300 group-hover:bg-[#1A5F3D] group-hover:text-white w-fit"
+          className="inline-flex items-center gap-1.5 rounded-full bg-muted px-4 py-2 text-sm font-semibold text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-primary-foreground w-fit"
           onClick={(e) => e.stopPropagation()}
         >
           {cta}
@@ -106,11 +106,11 @@ function ArrowBtn({
         w-9 h-9 md:w-11 md:h-11
         flex items-center justify-center
         rounded-full
-        bg-white/90 backdrop-blur
-        border border-gray-200/80
+        bg-card/90 backdrop-blur
+        border border-border
         shadow-[0_4px_16px_rgba(0,0,0,0.10)]
-        text-gray-700
-        hover:bg-[#1A5F3D] hover:text-white hover:border-[#1A5F3D]
+        text-foreground
+        hover:bg-primary hover:text-primary-foreground hover:border-primary
         active:scale-95
         transition-all duration-200
       `}
@@ -239,8 +239,8 @@ export function ServiceCarousel({
       onMouseLeave={() => { pausedRef.current = false; setArrowHint(false); }}
     >
       {/* ── Edge fade overlays ── */}
-      <div className="pointer-events-none absolute left-0 top-0 h-full w-24 bg-gradient-to-r from-[#f8fbf9] to-transparent z-10" />
-      <div className="pointer-events-none absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-[#f8fbf9] to-transparent z-10" />
+      <div className="pointer-events-none absolute left-0 top-0 h-full w-24 bg-gradient-to-r from-background to-transparent z-10" />
+      <div className="pointer-events-none absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-background to-transparent z-10" />
 
       {/* ── Arrow buttons (visible on hover) ── */}
       <div

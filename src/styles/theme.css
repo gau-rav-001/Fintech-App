@@ -1,6 +1,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  color-scheme: light;
   --font-size: 16px;
   --background: #F7F9FB;
   --foreground: #1F2937;
@@ -42,25 +43,28 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
+  color-scheme: dark;
+  --background: #0F1512;
+  --foreground: #E8F0EA;
+  --card: #161F1A;
+  --card-foreground: #E8F0EA;
+  --popover: #18231D;
+  --popover-foreground: #E8F0EA;
+  --primary: #3FAF7D;
+  --primary-foreground: #07110C;
+  --secondary: #60A5FA;
+  --secondary-foreground: #08111F;
+  --muted: #1F2A24;
+  --muted-foreground: #A6B4AB;
+  --accent: #2D7A4E;
+  --accent-foreground: #F2F8F4;
+  --destructive: #F87171;
+  --destructive-foreground: #280707;
+  --border: rgba(232, 240, 234, 0.12);
+  --input: rgba(232, 240, 234, 0.12);
+  --input-background: #111A15;
+  --switch-background: #334139;
+  --ring: #3FAF7D;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --chart-1: oklch(0.488 0.243 264.376);
@@ -68,14 +72,14 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  --sidebar: #111A15;
+  --sidebar-foreground: #E8F0EA;
+  --sidebar-primary: #3FAF7D;
+  --sidebar-primary-foreground: #07110C;
+  --sidebar-accent: #1F2A24;
+  --sidebar-accent-foreground: #E8F0EA;
+  --sidebar-border: rgba(232, 240, 234, 0.12);
+  --sidebar-ring: #3FAF7D;
 }
 
 @theme inline {
@@ -178,5 +182,65 @@
     font-size: var(--text-base);
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
+  }
+}
+
+@layer utilities {
+  /*
+   * Compatibility for older pages that still use fixed light Tailwind classes
+   * such as bg-white/text-gray-900. New code should prefer semantic tokens
+   * (bg-card, text-foreground, border-border), but these overrides keep every
+   * routed page readable when the global .dark class is active.
+   */
+  .dark .bg-white,
+  .dark .bg-gray-50,
+  .dark .bg-gray-100,
+  .dark .bg-\[\#F5F7FA\],
+  .dark .bg-\[\#F8FAFC\],
+  .dark .bg-\[\#FAFBFC\] {
+    background-color: var(--card) !important;
+  }
+
+  .dark .bg-gray-200 {
+    background-color: var(--muted) !important;
+  }
+
+  .dark .text-gray-900,
+  .dark .text-gray-800,
+  .dark .text-gray-700,
+  .dark .text-slate-900,
+  .dark .text-slate-800,
+  .dark .text-slate-700 {
+    color: var(--foreground) !important;
+  }
+
+  .dark .text-gray-600,
+  .dark .text-gray-500,
+  .dark .text-gray-400,
+  .dark .text-slate-600,
+  .dark .text-slate-500,
+  .dark .text-slate-400 {
+    color: var(--muted-foreground) !important;
+  }
+
+  .dark .border-gray-50,
+  .dark .border-gray-100,
+  .dark .border-gray-200,
+  .dark .border-gray-300,
+  .dark .border-slate-100,
+  .dark .border-slate-200,
+  .dark .border-slate-300 {
+    border-color: var(--border) !important;
+  }
+
+  .dark .from-gray-900 {
+    --tw-gradient-from: #101815 var(--tw-gradient-from-position);
+    --tw-gradient-to: rgb(16 24 21 / 0) var(--tw-gradient-to-position);
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to);
+  }
+
+  .dark .to-gray-900,
+  .dark .via-gray-900 {
+    --tw-gradient-to: #101815 var(--tw-gradient-to-position);
   }
 }

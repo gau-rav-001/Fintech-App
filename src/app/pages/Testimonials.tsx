@@ -31,11 +31,11 @@ export default function Testimonials() {
   }, []);
 
   return (
-    <section className="pt-10 pb-24 bg-white/60 backdrop-blur-xl overflow-hidden">
+    <section className="pt-10 pb-24 bg-background/60 backdrop-blur-xl overflow-hidden">
       <div className="max-w-6xl mx-auto px-6">
 
         {/* Title */}
-        <h2 className="text-3xl font-bold mb-16 text-gray-900">
+        <h2 className="text-3xl font-bold mb-16 text-foreground">
           Testimonials
         </h2>
 
@@ -54,7 +54,8 @@ export default function Testimonials() {
             >
               <path
                 d="M60 0 C20 80, 100 150, 60 300"
-                stroke="#d1d5db"
+                stroke="currentColor"
+                className="text-border"
                 strokeWidth="2"
                 fill="none"
               />
@@ -90,7 +91,7 @@ export default function Testimonials() {
                     ${
                       index === i
                         ? "border-green-500"
-                        : "border-white"
+                        : "border-card"
                     }`}
                   />
                 </motion.div>
@@ -104,10 +105,10 @@ export default function Testimonials() {
             initial={{ opacity: 0, x: 80 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6 }}
-            className="max-w-xl bg-white/70 backdrop-blur-lg p-10 rounded-3xl shadow-xl"
+            className="max-w-xl bg-card/70 backdrop-blur-lg p-10 rounded-3xl shadow-xl"
           >
             {/* Quote */}
-            <p className="text-xl italic text-gray-700 mb-6 leading-relaxed">
+            <p className="text-xl italic text-foreground/80 mb-6 leading-relaxed">
               “{data[index].text}”
             </p>
 
@@ -122,7 +123,7 @@ export default function Testimonials() {
                 src={data[index].img}
                 className="w-10 h-10 rounded-full object-cover"
               />
-              <h4 className="font-semibold text-gray-900">
+              <h4 className="font-semibold text-foreground">
                 {data[index].name}
               </h4>
             </div>

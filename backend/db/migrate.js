@@ -1,7 +1,7 @@
 // ── Run: node db/migrate.js ───────────────────────────────────────────────────
 // Creates all tables. Safe to re-run (uses IF NOT EXISTS).
 
-require("dotenv").config({ path: require("path").join(__dirname, "../.env") });
+require("../config/env").loadEnv();
 const db = require("../config/db");
 
 const SQL = `

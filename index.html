@@ -4,6 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SmartFinance</title>
+    <script>
+      // Anti-flicker: apply the resolved theme class before React mounts and
+      // before any stylesheet paints, so dark-mode users never see a flash of
+      // light mode on load. Mirrors ThemeContext's storage key + resolution
+      // logic exactly — keep these in sync if that logic ever changes.
+      (function () {
+        try {
+          var STORAGE_KEY = "sf-theme-preference";
+          var stored = localStorage.getItem(STORAGE_KEY);
+          var pref = stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
+          var resolved = pref === "system"
+            ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+            : pref;
+          if (resolved === "dark") document.documentElement.classList.add("dark");
+        } catch (e) {
+          // localStorage/matchMedia unavailable — fall back silently to light (default).
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

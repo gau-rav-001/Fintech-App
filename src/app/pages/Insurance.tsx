@@ -28,6 +28,8 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 
 // ─── Insurance type data ────────────────────────────────────────────────────
+// Per-category accent colors (rose/emerald/blue/amber/violet) are intentional
+// product differentiation — kept as literal colors in both themes.
 
 const insuranceTypes = [
   {
@@ -208,10 +210,10 @@ export function Insurance() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F7F9FB]">
+    <div className="min-h-screen bg-background">
       <Navbar />
 
-      {/* ── Hero ── */}
+      {/* ── Hero — intentional dark-green gradient block, stays as literal colors ── */}
       <section className="relative overflow-hidden bg-[linear-gradient(135deg,#0f2a1d_0%,#1A5F3D_45%,#2D7A4E_75%,#4aa06f_100%)] text-white py-16 md:py-24">
         <div className="absolute inset-0">
           <div className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#B8E986]/15 blur-3xl" />
@@ -267,18 +269,18 @@ export function Insurance() {
       </section>
 
       {/* ── Insurance Cards ── */}
-      <section className="relative py-16 md:py-24 overflow-hidden bg-[radial-gradient(circle_at_top,rgba(63,175,125,0.08),transparent_30%),linear-gradient(to_bottom,#f8fbf9,#ffffff)]">
+      <section className="relative py-16 md:py-24 overflow-hidden bg-[radial-gradient(circle_at_top,rgba(63,175,125,0.08),transparent_30%),linear-gradient(to_bottom,var(--background),var(--card))]">
         <div className="absolute inset-0 opacity-[0.30] [background-image:linear-gradient(rgba(26,95,61,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(26,95,61,0.04)_1px,transparent_1px)] [background-size:36px_36px]" />
 
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-5">
           <div className="text-center mb-12">
-            <div className="inline-flex items-center rounded-full border border-[#d7eadf] bg-white/70 backdrop-blur px-4 py-2 text-sm font-medium text-[#1A5F3D] mb-4">
+            <div className="inline-flex items-center rounded-full border border-primary/20 bg-card/70 backdrop-blur px-4 py-2 text-sm font-medium text-primary mb-4">
               Tap any card to explore plans
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-[-0.03em]">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground tracking-[-0.03em]">
               Choose Your Coverage
             </h2>
-            <p className="text-gray-500 mt-3 text-base max-w-xl mx-auto leading-7">
+            <p className="text-muted-foreground mt-3 text-base max-w-xl mx-auto leading-7">
               Compare plans, features, and premiums across all insurance categories in one place.
             </p>
           </div>
@@ -298,13 +300,13 @@ export function Insurance() {
       </section>
 
       {/* ── Why choose us ── */}
-      <section className="py-16 md:py-20 bg-white">
+      <section className="py-16 md:py-20 bg-card">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-3 tracking-[-0.02em]">
+            <h2 className="text-3xl font-bold text-foreground mb-3 tracking-[-0.02em]">
               Why Buy Insurance With Us?
             </h2>
-            <p className="text-gray-500 text-base max-w-xl mx-auto leading-7">
+            <p className="text-muted-foreground text-base max-w-xl mx-auto leading-7">
               Unbiased advice. Zero paperwork. Instant issuance.
             </p>
           </div>
@@ -341,22 +343,22 @@ export function Insurance() {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: i * 0.1 }}
-                className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm hover:shadow-md transition-shadow"
+                className="rounded-2xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow"
               >
                 <div
                   className={`w-11 h-11 rounded-xl bg-gradient-to-br ${f.color} flex items-center justify-center text-white mb-4 shadow-md`}
                 >
                   {f.icon}
                 </div>
-                <h3 className="font-bold text-gray-900 mb-2 text-base">{f.title}</h3>
-                <p className="text-sm text-gray-500 leading-6">{f.desc}</p>
+                <h3 className="font-bold text-foreground mb-2 text-base">{f.title}</h3>
+                <p className="text-sm text-muted-foreground leading-6">{f.desc}</p>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── CTA ── */}
+      {/* ── CTA — intentional dark-green gradient block, stays as literal colors ── */}
       <section className="relative py-20 overflow-hidden bg-[linear-gradient(135deg,#0c1f17_0%,#123d2a_40%,#1A5F3D_70%,#2D7A4E_100%)] text-white">
         <div className="absolute inset-0">
           <div className="absolute left-1/2 top-[45%] h-[350px] w-[350px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#3FAF7D]/15 blur-[100px]" />
@@ -394,7 +396,7 @@ export function Insurance() {
 
       {/* Toast */}
       {quoteToast && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl bg-[#1A5F3D] text-white text-sm font-semibold max-w-sm">
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl bg-primary text-white text-sm font-semibold max-w-sm">
           <CheckCircle className="w-4 h-4 shrink-0" />
           {quoteToast}
         </div>
@@ -425,8 +427,8 @@ function InsuranceCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, delay: index * 0.08 }}
-      className={`rounded-2xl border bg-white shadow-sm transition-all duration-300 overflow-hidden
-        ${expanded ? "shadow-lg ring-2 ring-[#1A5F3D]/20" : "hover:shadow-md"}
+      className={`rounded-2xl border bg-card shadow-sm transition-all duration-300 overflow-hidden
+        ${expanded ? "shadow-lg ring-2 ring-primary/20" : "hover:shadow-md"}
         ${ins.borderColor}`}
     >
       {/* ── Card Header ── */}
@@ -446,7 +448,7 @@ function InsuranceCard({
 
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-1">
-                <h3 className="text-lg font-bold text-gray-900 leading-tight">
+                <h3 className="text-lg font-bold text-foreground leading-tight">
                   {ins.title}
                 </h3>
                 <span
@@ -455,23 +457,23 @@ function InsuranceCard({
                   {ins.highlight}
                 </span>
               </div>
-              <p className="text-sm text-gray-500 leading-5">{ins.subtitle}</p>
+              <p className="text-sm text-muted-foreground leading-5">{ins.subtitle}</p>
             </div>
           </div>
 
           {/* Right: premium + toggle */}
           <div className="flex items-center gap-5 shrink-0 ml-4">
             <div className="hidden sm:block text-right">
-              <p className="text-xs text-gray-400 mb-0.5">Starting from</p>
-              <p className="text-base font-bold text-gray-900">
+              <p className="text-xs text-muted-foreground/70 mb-0.5">Starting from</p>
+              <p className="text-base font-bold text-foreground">
                 {ins.startingPremium}
               </p>
-              <p className="text-xs text-gray-400">{ins.coverAmount}</p>
+              <p className="text-xs text-muted-foreground/70">{ins.coverAmount}</p>
             </div>
 
             <div
               className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 flex-shrink-0
-                ${expanded ? "bg-[#1A5F3D] text-white" : "bg-gray-100 text-gray-500"}`}
+                ${expanded ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}
             >
               {expanded ? (
                 <ChevronUp className="w-4 h-4" />

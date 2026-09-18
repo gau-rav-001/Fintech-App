@@ -181,7 +181,61 @@ async function goalAnalysis(userId) {
 // ── Tool 7: Retirement Analysis ───────────────────────────────────────────────
 async function retirementAnalysis(userId) {
   const result = await calculateRetirementCorpus(userId);
-  if (result.error) return result;
+  if (result.error) {
+    const [user, growth, budget] = await Promise.all([
+      User.findById(userId),
+      calculateInvestmentGrowth(userId),
+      calculateBudgetHealth(userId),
+    ]);
+
+    const currentAge = user?.dob ? new Date().getFullYear() - new Date(user.dob).getFullYear() : 30;
+    const retirementGoal = (user?.goals || []).find((g) =>
+      g.category === "retirement" || /retire|retirement/i.test(g.name || "")
+    );
+    const targetYear = retirementGoal?.targetDate
+      ? new Date(retirementGoal.targetDate).getFullYear()
+      : null;
+    const retirementAge = targetYear && targetYear > new Date().getFullYear()
+      ? currentAge + (targetYear - new Date().getFullYear())
+      : 60;
+    const lifeExpectancy = 85;
+    const expectedReturn = 10;
+    const inflation = 6;
+    const currentCorpus = growth?.totalValue || 0;
+    const monthlyContribution = growth?.monthlySIP || Math.max(0, Math.round((budget?.monthlySavings || 0) * 0.5));
+    const monthlyExpense = Math.max(0, Math.round((budget?.monthlyExpense || 0) * 0.75));
+    const yearsToRetirement = Math.max(1, retirementAge - currentAge);
+    const yearsInRetirement = Math.max(1, lifeExpectancy - retirementAge);
+
+    const monthlyRate = expectedReturn / 100 / 12;
+    const months = yearsToRetirement * 12;
+    const fvCurrentCorpus = currentCorpus * Math.pow(1 + expectedReturn / 100, yearsToRetirement);
+    const fvContributions = monthlyContribution * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
+    const projectedCorpus = fvCurrentCorpus + fvContributions;
+    const inflationAdjustedExpense = monthlyExpense * Math.pow(1 + inflation / 100, yearsToRetirement);
+    const requiredCorpus = (inflationAdjustedExpense * 12 * yearsInRetirement) / (1 + expectedReturn / 100 - inflation / 100);
+    const gap = requiredCorpus - projectedCorpus;
+    const additionalSIPNeeded = gap > 0
+      ? (gap * monthlyRate) / (Math.pow(1 + monthlyRate, months) - 1)
+      : 0;
+
+    return {
+      currentAge,
+      retirementAge,
+      lifeExpectancy,
+      projectedCorpus: Math.round(projectedCorpus),
+      requiredCorpus: Math.round(requiredCorpus),
+      gap: Math.round(gap),
+      sufficient: gap <= 0,
+      additionalSIPNeeded: Math.round(Math.max(0, additionalSIPNeeded)),
+      estimated: true,
+      assumptions: {
+        expectedReturn,
+        inflation,
+        monthlyExpensePostRetirement: Math.round(inflationAdjustedExpense),
+      },
+    };
+  }
 
   return {
     currentAge: result.currentAge,

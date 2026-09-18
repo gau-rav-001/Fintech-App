@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
+import { AIAssistant } from "../components/AIAssistant";
 import {
   AreaChart,
   Area,

@@ -307,23 +307,23 @@ export function Navbar() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 8, scale: 0.96 }}
                         transition={{ duration: 0.15 }}
-                        className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50"
+                        className="absolute right-0 top-full mt-2 w-48 bg-card rounded-2xl shadow-2xl border border-border overflow-hidden z-50"
                       >
-                        <div className="px-4 py-3 border-b border-gray-100">
-                          <p className="text-xs font-semibold text-gray-800 truncate">{displayName}</p>
-                          <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+                        <div className="px-4 py-3 border-b border-border">
+                          <p className="text-xs font-semibold text-foreground truncate">{displayName}</p>
+                          <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                         </div>
                         <div className="py-1">
                           <Link to="/dashboard" onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                            <LayoutDashboard className="w-4 h-4 text-[#1A5F3D]" /> Dashboard
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">
+                            <LayoutDashboard className="w-4 h-4 text-primary" /> Dashboard
                           </Link>
                           <Link to="/settings" onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                            <Settings className="w-4 h-4 text-[#1A5F3D]" /> Settings
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors">
+                            <Settings className="w-4 h-4 text-primary" /> Settings
                           </Link>
                           <button onClick={handleLogout}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors">
                             <LogOut className="w-4 h-4" /> Logout
                           </button>
                         </div>

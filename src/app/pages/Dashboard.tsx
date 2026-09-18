@@ -4,7 +4,7 @@ import {
   Home, TrendingUp, Calculator, FileText, Video, Settings, LogOut,
   Menu, X, Wallet, ArrowUpRight, ArrowDownRight, User, Bell,
   Shield, Target, AlertTriangle, CheckCircle, Info, ChevronRight,
-  Newspaper, Play, Sparkles,
+  Newspaper, Play, Sparkles, Zap,
 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
@@ -22,7 +22,7 @@ function SidebarLink({ icon, label, active, to, onClick }: {
   icon: React.ReactNode; label: string; active?: boolean; to?: string; onClick?: () => void;
 }) {
   const cls = `flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all cursor-pointer text-sm font-medium ${
-    active ? "bg-gradient-to-r from-[#1A5F3D] to-[#2D7A4E] text-white shadow" : "text-gray-600 hover:bg-gray-100"
+    active ? "bg-gradient-to-r from-primary to-[#2D7A4E] text-primary-foreground shadow" : "text-muted-foreground hover:bg-muted"
   }`;
   const content = <div className={cls} onClick={onClick}>{icon}<span>{label}</span></div>;
   return to ? <Link to={to}>{content}</Link> : content;
@@ -34,7 +34,7 @@ function StatCard({ title, value, change, positive, icon, sub }: {
 }) {
   return (
     <motion.div whileHover={{ y: -3 }}
-      className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+      className="bg-card rounded-2xl p-5 shadow-sm border border-border">
       <div className="flex items-center justify-between mb-3">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center text-white">
           {icon}
@@ -47,9 +47,9 @@ function StatCard({ title, value, change, positive, icon, sub }: {
           }`}>{change}</span>
         )}
       </div>
-      <p className="text-xs text-gray-500 mb-0.5">{title}</p>
-      <p className="text-xl font-bold text-gray-900">{value}</p>
-      {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+      <p className="text-xs text-muted-foreground mb-0.5">{title}</p>
+      <p className="text-xl font-bold text-foreground">{value}</p>
+      {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
     </motion.div>
   );
 }
@@ -86,11 +86,11 @@ function GoalBar({ name, icon, current, target, year }: {
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-2">
           <span className="text-base">{icon}</span>
-          <span className="text-sm font-medium text-gray-700">{name}</span>
+          <span className="text-sm font-medium text-foreground">{name}</span>
         </div>
         <div className="text-right">
-          <span className="text-xs font-bold text-gray-900">{pct}%</span>
-          <span className="text-xs text-gray-400 ml-1">by {year}</span>
+          <span className="text-xs font-bold text-foreground">{pct}%</span>
+          <span className="text-xs text-muted-foreground ml-1">by {year}</span>
         </div>
       </div>
       <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -101,10 +101,11 @@ function GoalBar({ name, icon, current, target, year }: {
           className="h-full bg-gradient-to-r from-[#1A5F3D] to-[#3FAF7D] rounded-full"
         />
       </div>
-      <div className="flex justify-between text-xs text-gray-400 mt-1">
+      <div className="flex justify-between text-xs text-muted-foreground mt-1">
         <span>{fmt(current)}</span>
         <span>{fmt(target)}</span>
       </div>
+
     </div>
   );
 }
@@ -120,7 +121,7 @@ function fmt(n: number) {
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab]     = useState<"overview"|"profile"|"goals"|"insights">("overview");
+  const [activeTab, setActiveTab]     = useState<"overview"|"profile"|"goals"|"insights"|"ai-chat">("overview");
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -202,13 +203,13 @@ export function Dashboard() {
   ].filter(d => d.value > 0) : [];
 
   return (
-    <div className="min-h-screen bg-[#F7F9FB] flex">
+    <div className="min-h-screen bg-background text-foreground flex">
       {/* ── Sidebar ── */}
       <AnimatePresence>
         {(sidebarOpen || (typeof window !== "undefined" && window.innerWidth >= 768)) && (
           <motion.aside initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
             transition={{ type: "spring", damping: 22 }}
-            className="fixed md:sticky top-0 left-0 h-screen w-60 bg-white border-r border-gray-100 z-50 flex flex-col"
+            className="fixed md:sticky top-0 left-0 h-screen w-60 bg-card border-r border-border z-50 flex flex-col"
           >
             <div className="p-5 flex-1 overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
@@ -216,7 +217,7 @@ export function Dashboard() {
                   <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center">
                     <span className="text-white font-bold text-sm">SF</span>
                   </div>
-                  <span className="font-bold text-gray-900">SmartFinance</span>
+                  <span className="font-bold text-foreground">SmartFinance</span>
                 </Link>
                 <button onClick={() => setSidebarOpen(false)} className="md:hidden p-1">
                   <X className="w-4 h-4" />
@@ -224,29 +225,30 @@ export function Dashboard() {
               </div>
 
               {/* User badge */}
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-[#f0faf4] border border-[#c6e8d5] mb-5">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-muted border border-border mb-5">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center text-white text-xs font-bold overflow-hidden flex-shrink-0">
                   {avatarUrl
                     ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                     : initials}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-gray-800 truncate">{displayName}</p>
-                  <p className="text-xs text-gray-400 truncate">{displayEmail}</p>
+                  <p className="text-xs font-semibold text-foreground truncate">{displayName}</p>
+                  <p className="text-xs text-muted-foreground truncate">{displayEmail}</p>
                 </div>
               </div>
 
               <nav className="space-y-1">
                 <SidebarLink icon={<Home className="w-4 h-4" />} label="Overview"
                   active={activeTab === "overview"} onClick={() => setActiveTab("overview")} />
+                <SidebarLink icon={<Sparkles className="w-4 h-4 text-emerald-400" />} label="AI Advisor"
+                  active={activeTab === "ai-chat"} onClick={() => setActiveTab("ai-chat")} />
                 <SidebarLink icon={<User className="w-4 h-4" />} label="My Profile"
                   active={activeTab === "profile"} onClick={() => setActiveTab("profile")} />
                 <SidebarLink icon={<Target className="w-4 h-4" />} label="Goals"
                   active={activeTab === "goals"} onClick={() => setActiveTab("goals")} />
                 <SidebarLink icon={<Bell className="w-4 h-4" />} label="Insights"
                   active={activeTab === "insights"} onClick={() => setActiveTab("insights")} />
-                <div className="h-px bg-gray-100 my-2" />
-                <SidebarLink icon={<Sparkles className="w-4 h-4" />} label="AI Assistant" to="/ai/chat" />
+                <div className="h-px bg-border my-2" />
                 <SidebarLink icon={<TrendingUp className="w-4 h-4" />} label="Investments" to="/services" />
                 <SidebarLink icon={<Calculator className="w-4 h-4" />} label="Calculators" to="/calculator/sip" />
                 <SidebarLink icon={<FileText className="w-4 h-4" />} label="Planner" to="/planner" />
@@ -255,7 +257,7 @@ export function Dashboard() {
               </nav>
             </div>
 
-            <div className="p-5 border-t border-gray-100">
+            <div className="p-5 border-t border-border">
               <SidebarLink icon={<Settings className="w-4 h-4" />} label="Settings" to="/settings" />
               <button onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-all mt-1">
@@ -269,24 +271,24 @@ export function Dashboard() {
       {/* ── Main ── */}
       <div className="flex-1 overflow-x-hidden">
         {/* Top bar */}
-        <header className="bg-white border-b border-gray-100 sticky top-0 z-40">
+        <header className="bg-card border-b border-border sticky top-0 z-40">
           <div className="px-4 sm:px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <button onClick={() => setSidebarOpen(s => !s)} className="md:hidden p-2">
                 <Menu className="w-5 h-5" />
               </button>
               <div>
-                <h1 className="text-lg font-bold text-gray-900">
-                  {activeTab === "overview" ? "Dashboard" : activeTab === "profile" ? "My Profile" : activeTab === "goals" ? "Financial Goals" : "Smart Insights"}
+                <h1 className="text-lg font-bold text-foreground">
+                  {activeTab === "overview" ? "Dashboard" : activeTab === "ai-chat" ? "AI Wealth Advisor" : activeTab === "profile" ? "My Profile" : activeTab === "goals" ? "Financial Goals" : "Smart Insights"}
                 </h1>
-                <p className="text-xs text-gray-400">Welcome back, {displayName.split(" ")[0]}!</p>
+                <p className="text-xs text-muted-foreground">Welcome back, {displayName.split(" ")[0]}!</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <NotificationBell actorType="user" />
               <div className="hidden sm:block text-right">
-                <p className="text-xs font-semibold text-gray-800">{displayName}</p>
-                <p className="text-xs text-gray-400">{displayEmail}</p>
+                <p className="text-xs font-semibold text-foreground">{displayName}</p>
+                <p className="text-xs text-muted-foreground">{displayEmail}</p>
               </div>
               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center text-white text-xs font-bold cursor-pointer overflow-hidden"
                 onClick={() => setActiveTab("profile")}>
@@ -297,13 +299,14 @@ export function Dashboard() {
             </div>
           </div>
           {/* Tab bar */}
-          <div className="flex gap-0 border-t border-gray-100 px-4 sm:px-6 overflow-x-auto">
-            {(["overview","profile","goals","insights"] as const).map(t => (
+          <div className="flex gap-0 border-t border-border px-4 sm:px-6 overflow-x-auto">
+            {(["overview", "ai-chat", "profile", "goals", "insights"] as const).map(t => (
               <button key={t} onClick={() => setActiveTab(t)}
                 className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap ${
-                  activeTab === t ? "border-[#1A5F3D] text-[#1A5F3D]" : "border-transparent text-gray-400 hover:text-gray-600"
+                  activeTab === t ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
+                {t === "ai-chat" && <Sparkles className="w-3 h-3 text-emerald-500 inline mr-1" />}
+                {t === "ai-chat" ? "AI Advisor" : t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
           </div>
@@ -332,8 +335,8 @@ export function Dashboard() {
               {/* Charts row */}
               <div className="grid lg:grid-cols-2 gap-6">
                 {/* Portfolio growth */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                  <h3 className="font-bold text-gray-900 mb-4 text-sm">Portfolio Growth</h3>
+                <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+                  <h3 className="font-bold text-foreground mb-4 text-sm">Portfolio Growth</h3>
                   <ResponsiveContainer width="100%" height={220}>
                     <LineChart data={fp?.investmentHistory ?? []}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -350,8 +353,8 @@ export function Dashboard() {
                 </div>
 
                 {/* Asset allocation */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                  <h3 className="font-bold text-gray-900 mb-4 text-sm">Asset Allocation</h3>
+                <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+                  <h3 className="font-bold text-foreground mb-4 text-sm">Asset Allocation</h3>
                   <div className="flex items-center gap-4">
                     <ResponsiveContainer width="55%" height={200}>
                       <PieChart>
@@ -367,9 +370,9 @@ export function Dashboard() {
                         <div key={i} className="flex items-center justify-between">
                           <div className="flex items-center gap-1.5">
                             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: d.color }} />
-                            <span className="text-xs text-gray-600">{d.name}</span>
+                            <span className="text-xs text-muted-foreground">{d.name}</span>
                           </div>
-                          <span className="text-xs font-semibold text-gray-800">{fmt(d.value)}</span>
+                          <span className="text-xs font-semibold text-foreground">{fmt(d.value)}</span>
                         </div>
                       ))}
                     </div>
@@ -383,8 +386,8 @@ export function Dashboard() {
               {/* Expense breakdown + Insights */}
               <div className="grid lg:grid-cols-2 gap-6">
                 {/* Expense breakdown */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                  <h3 className="font-bold text-gray-900 mb-4 text-sm">Monthly Expense Breakdown</h3>
+                <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+                  <h3 className="font-bold text-foreground mb-4 text-sm">Monthly Expense Breakdown</h3>
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={fp?.expenseBreakdown ?? []} layout="vertical" margin={{ left: 12 }}>
                       <XAxis type="number" stroke="#9ca3af" tick={{ fontSize: 10 }}
@@ -399,9 +402,9 @@ export function Dashboard() {
                 </div>
 
                 {/* Smart insights preview */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-bold text-gray-900 text-sm">Smart Insights</h3>
+                    <h3 className="font-bold text-foreground text-sm">Smart Insights</h3>
                     <button onClick={() => setActiveTab("insights")}
                       className="text-xs text-[#1A5F3D] font-semibold flex items-center gap-1 hover:underline">
                       View all <ChevronRight className="w-3 h-3" />
@@ -419,18 +422,18 @@ export function Dashboard() {
               <div className="grid lg:grid-cols-2 gap-6">
                 {/* News updates */}
                 {cms.newsUpdates.length > 0 && (
-                  <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                  <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
                     <div className="flex items-center gap-2 mb-4">
                       <Newspaper className="w-4 h-4 text-[#1A5F3D]" />
-                      <h3 className="font-bold text-gray-900 text-sm">Financial Updates</h3>
+                      <h3 className="font-bold text-foreground text-sm">Financial Updates</h3>
                     </div>
                     <div className="space-y-3">
                       {cms.newsUpdates.slice(0, 2).map(n => (
                         <div key={n.id} className="flex items-start gap-3 p-3 rounded-xl bg-gray-50">
                           {n.urgent && <span className="text-xs font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded shrink-0">URGENT</span>}
                           <div>
-                            <p className="text-xs font-semibold text-gray-800">{n.title}</p>
-                            <p className="text-xs text-gray-500 mt-0.5 leading-4">{n.summary}</p>
+                            <p className="text-xs font-semibold text-foreground">{n.title}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 leading-4">{n.summary}</p>
                           </div>
                         </div>
                       ))}
@@ -439,20 +442,20 @@ export function Dashboard() {
                 )}
                 {/* Upcoming webinars */}
                 {cms.webinars.length > 0 && (
-                  <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                  <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
                     <div className="flex items-center gap-2 mb-4">
                       <Video className="w-4 h-4 text-[#1A5F3D]" />
-                      <h3 className="font-bold text-gray-900 text-sm">Upcoming Webinars</h3>
+                      <h3 className="font-bold text-foreground text-sm">Upcoming Webinars</h3>
                     </div>
                     <div className="space-y-3">
                       {cms.webinars.filter(w => w.status === "upcoming").slice(0, 2).map(w => (
-                        <div key={w.id} className="flex items-start gap-3 p-3 rounded-xl bg-[#f0faf4] border border-[#d7eadf]">
+                        <div key={w.id} className="flex items-start gap-3 p-3 rounded-xl bg-muted border border-border">
                           <div className="w-8 h-8 rounded-lg bg-[#1A5F3D] flex items-center justify-center shrink-0">
                             <Play className="w-3 h-3 text-white" />
                           </div>
                           <div>
-                            <p className="text-xs font-semibold text-gray-800">{w.title}</p>
-                            <p className="text-xs text-gray-500">{w.date} · {w.time}</p>
+                            <p className="text-xs font-semibold text-foreground">{w.title}</p>
+                            <p className="text-xs text-muted-foreground">{w.date} · {w.time}</p>
                           </div>
                         </div>
                       ))}
@@ -461,10 +464,10 @@ export function Dashboard() {
                 )}
                 {/* Learning videos from admin */}
                 {cms.videos.length > 0 && (
-                  <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                  <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
                     <div className="flex items-center gap-2 mb-4">
                       <Play className="w-4 h-4 text-[#1A5F3D]" />
-                      <h3 className="font-bold text-gray-900 text-sm">Learning Resources</h3>
+                      <h3 className="font-bold text-foreground text-sm">Learning Resources</h3>
                     </div>
                     <div className="space-y-3">
                       {cms.videos.slice(0, 2).map(v => (
@@ -474,14 +477,39 @@ export function Dashboard() {
                             <Play className="w-3 h-3 text-white" />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-xs font-semibold text-gray-800 truncate">{v.title}</p>
-                            <p className="text-xs text-gray-500 line-clamp-1">{v.description}</p>
+                            <p className="text-xs font-semibold text-foreground truncate">{v.title}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-1">{v.description}</p>
                           </div>
                         </a>
                       ))}
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* ════ TAB: AI ADVISOR ════ */}
+          {activeTab === "ai-chat" && (
+            <div className="space-y-4 max-w-6xl mx-auto">
+              <div className="bg-card rounded-2xl p-5 border border-border shadow-xs flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-emerald-500" />
+                    SmartFinance AI Wealth Advisor
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Ask anything: real-time stock prices (SBI, Reliance, Nifty), reverse SIP math, tax regime recommendations, or net worth analytics.
+                  </p>
+                </div>
+                <div className="hidden sm:flex items-center gap-2">
+                  <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
+                    🟢 Live Market Feeds & Offline Brain
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-border overflow-hidden shadow-sm">
+                <AIAssistant inline />
               </div>
             </div>
           )}
@@ -517,9 +545,9 @@ export function Dashboard() {
 
               <div className="grid md:grid-cols-2 gap-6">
                 {/* Personal info */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                  <h3 className="font-bold text-gray-900 mb-4 text-sm flex items-center gap-2">
-                    <User className="w-4 h-4 text-[#1A5F3D]" /> Personal Information
+                <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+                  <h3 className="font-bold text-foreground mb-4 text-sm flex items-center gap-2">
+                    <User className="w-4 h-4 text-primary" /> Personal Information
                   </h3>
                   {[
                     ["Full Name",       up?.personal.fullName || displayName],
@@ -531,17 +559,17 @@ export function Dashboard() {
                     ["Location",        up ? `${up.personal.city}, ${up.personal.state}`.replace(/^, |, $/, "") : "—"],
                     ["Risk Tolerance",  up?.riskProfile.tolerance || user?.riskProfile || "Moderate"],
                   ].map(([k, v]) => (
-                    <div key={k} className="flex justify-between py-2 border-b border-gray-50 last:border-0">
-                      <span className="text-xs text-gray-500">{k}</span>
-                      <span className="text-xs font-semibold text-gray-800 capitalize">{v}</span>
+                    <div key={k} className="flex justify-between py-2 border-b border-border last:border-0">
+                      <span className="text-xs text-muted-foreground">{k}</span>
+                      <span className="text-xs font-semibold text-foreground capitalize">{v}</span>
                     </div>
                   ))}
                 </div>
 
                 {/* Income & expenses */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                  <h3 className="font-bold text-gray-900 mb-4 text-sm flex items-center gap-2">
-                    <Wallet className="w-4 h-4 text-[#1A5F3D]" /> Income & Expenses
+                <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+                  <h3 className="font-bold text-foreground mb-4 text-sm flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-primary" /> Income & Expenses
                   </h3>
                   {[
                     ["Monthly Income",   fmt(fp.monthlyIncome)],
@@ -550,17 +578,17 @@ export function Dashboard() {
                     ["Savings Rate",     `${stats?.savingsRate ?? 0}%`],
                     ["Monthly SIP",      fmt(fp.monthlysSIP)],
                   ].map(([k, v]) => (
-                    <div key={k} className="flex justify-between py-2 border-b border-gray-50 last:border-0">
-                      <span className="text-xs text-gray-500">{k}</span>
-                      <span className="text-xs font-semibold text-gray-800">{v}</span>
+                    <div key={k} className="flex justify-between py-2 border-b border-border last:border-0">
+                      <span className="text-xs text-muted-foreground">{k}</span>
+                      <span className="text-xs font-semibold text-foreground">{v}</span>
                     </div>
                   ))}
                 </div>
 
                 {/* Assets */}
-                <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                  <h3 className="font-bold text-gray-900 mb-4 text-sm flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-[#1A5F3D]" /> Assets
+                <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+                  <h3 className="font-bold text-foreground mb-4 text-sm flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-primary" /> Assets
                   </h3>
                   {[
                     ["Savings Account", fmt(fp.savingsAccount)],
@@ -571,17 +599,17 @@ export function Dashboard() {
                     ["PPF",             fmt(fp.ppf)],
                     ["Total Assets",    fmt(stats?.totalAssets ?? 0)],
                   ].map(([k, v], i) => (
-                    <div key={k} className={`flex justify-between py-2 border-b border-gray-50 last:border-0 ${i === 6 ? "font-bold" : ""}`}>
-                      <span className={`text-xs ${i === 6 ? "text-[#1A5F3D] font-semibold" : "text-gray-500"}`}>{k}</span>
-                      <span className={`text-xs font-semibold ${i === 6 ? "text-[#1A5F3D]" : "text-gray-800"}`}>{v}</span>
+                    <div key={k} className={`flex justify-between py-2 border-b border-border last:border-0 ${i === 6 ? "font-bold" : ""}`}>
+                      <span className={`text-xs ${i === 6 ? "text-primary font-semibold" : "text-muted-foreground"}`}>{k}</span>
+                      <span className={`text-xs font-semibold ${i === 6 ? "text-primary" : "text-foreground"}`}>{v}</span>
                     </div>
                   ))}
                 </div>
 
                 {/* Liabilities + Insurance */}
                 <div className="space-y-4">
-                  <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-900 mb-4 text-sm flex items-center gap-2">
+                  <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+                    <h3 className="font-bold text-foreground mb-4 text-sm flex items-center gap-2">
                       <ArrowDownRight className="w-4 h-4 text-red-500" /> Loans & Liabilities
                     </h3>
                     {up?.loans && up.loans.length > 0 ? (
@@ -589,17 +617,17 @@ export function Dashboard() {
                         {up.loans.map((loan) => (
                           <div key={loan.id} className="p-3 rounded-xl bg-red-50 border border-red-100">
                             <div className="flex justify-between items-start mb-1">
-                              <p className="text-xs font-semibold text-gray-800 capitalize">{loan.lenderName || loan.type.replace("_"," ")}</p>
+                              <p className="text-xs font-semibold text-foreground capitalize">{loan.lenderName || loan.type.replace("_"," ")}</p>
                               <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium capitalize">{loan.type.replace("_"," ")}</span>
                             </div>
                             <div className="grid grid-cols-3 gap-2 text-xs mt-1.5">
-                              <div><p className="text-gray-400">Outstanding</p><p className="font-bold text-red-600">{fmt(loan.outstandingAmount)}</p></div>
-                              <div><p className="text-gray-400">EMI/mo</p><p className="font-semibold text-gray-700">{fmt(loan.emi)}</p></div>
-                              <div><p className="text-gray-400">Rate</p><p className="font-semibold text-gray-700">{loan.interestRate}%</p></div>
+                              <div><p className="text-muted-foreground">Outstanding</p><p className="font-bold text-red-600">{fmt(loan.outstandingAmount)}</p></div>
+                              <div><p className="text-muted-foreground">EMI/mo</p><p className="font-semibold text-foreground">{fmt(loan.emi)}</p></div>
+                              <div><p className="text-muted-foreground">Rate</p><p className="font-semibold text-foreground">{loan.interestRate}%</p></div>
                             </div>
                           </div>
                         ))}
-                        <div className="flex justify-between py-2 border-t border-gray-100 mt-1">
+                        <div className="flex justify-between py-2 border-t border-border mt-1">
                           <span className="text-xs text-red-500 font-semibold">Total Liabilities</span>
                           <span className="text-xs font-bold text-red-500">{fmt(stats?.totalLiabilities ?? 0)}</span>
                         </div>
@@ -612,18 +640,18 @@ export function Dashboard() {
                           ["Credit Card Debt", fmt(fp.creditCardDebt)],
                           ["Total Liabilities",fmt(stats?.totalLiabilities ?? 0)],
                         ].map(([k, v], i) => (
-                          <div key={k} className="flex justify-between py-2 border-b border-gray-50 last:border-0">
-                            <span className={`text-xs ${i === 3 ? "text-red-500 font-semibold" : "text-gray-500"}`}>{k}</span>
-                            <span className={`text-xs font-semibold ${i === 3 ? "text-red-500" : "text-gray-800"}`}>{v}</span>
+                          <div key={k} className="flex justify-between py-2 border-b border-border last:border-0">
+                            <span className={`text-xs ${i === 3 ? "text-red-500 font-semibold" : "text-muted-foreground"}`}>{k}</span>
+                            <span className={`text-xs font-semibold ${i === 3 ? "text-red-500" : "text-foreground"}`}>{v}</span>
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
 
-                  <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                    <h3 className="font-bold text-gray-900 mb-4 text-sm flex items-center gap-2">
-                      <Shield className="w-4 h-4 text-[#1A5F3D]" /> Insurance Coverage
+                  <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+                    <h3 className="font-bold text-foreground mb-4 text-sm flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-primary" /> Insurance Coverage
                     </h3>
                     {[
                       ["Life Insurance",    fmt(fp.lifeInsuranceCover)],
@@ -631,9 +659,9 @@ export function Dashboard() {
                       ["Vehicle Insurance", fp.vehicleInsurance ? "✅ Active" : "❌ None"],
                       ["Home Insurance",    fp.homeInsurance ? "✅ Active" : "❌ None"],
                     ].map(([k, v]) => (
-                      <div key={k} className="flex justify-between py-2 border-b border-gray-50 last:border-0">
-                        <span className="text-xs text-gray-500">{k}</span>
-                        <span className="text-xs font-semibold text-gray-800">{v}</span>
+                      <div key={k} className="flex justify-between py-2 border-b border-border last:border-0">
+                        <span className="text-xs text-muted-foreground">{k}</span>
+                        <span className="text-xs font-semibold text-foreground">{v}</span>
                       </div>
                     ))}
                   </div>
@@ -641,15 +669,15 @@ export function Dashboard() {
               </div>
 
               {/* SIP Funds */}
-              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                <h3 className="font-bold text-gray-900 mb-4 text-sm">Active SIP Funds</h3>
+              <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+                <h3 className="font-bold text-foreground mb-4 text-sm">Active SIP Funds</h3>
                 <div className="grid sm:grid-cols-3 gap-3">
                   {fp.sipFunds.map((fund, i) => (
-                    <div key={i} className="p-4 rounded-xl bg-[#f0faf4] border border-[#d7eadf]">
-                      <p className="text-xs font-semibold text-gray-800 mb-1">{fund.name}</p>
-                      <p className="text-lg font-bold text-[#1A5F3D]">{fmt(fund.amount)}<span className="text-xs text-gray-400 font-normal">/mo</span></p>
+                    <div key={i} className="p-4 rounded-xl bg-muted border border-border">
+                      <p className="text-xs font-semibold text-foreground mb-1">{fund.name}</p>
+                      <p className="text-lg font-bold text-primary">{fmt(fund.amount)}<span className="text-xs text-muted-foreground font-normal">/mo</span></p>
                       <div className="flex items-center justify-between mt-2">
-                        <span className="text-xs text-gray-500 capitalize">{fund.type}</span>
+                        <span className="text-xs text-muted-foreground capitalize">{fund.type}</span>
                         <span className="text-xs font-semibold text-green-600">+{fund.returns}%</span>
                       </div>
                     </div>
@@ -663,27 +691,27 @@ export function Dashboard() {
           {activeTab === "goals" && (
             <div className="space-y-6 max-w-3xl">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">Financial Goals</h2>
+                <h2 className="text-lg font-bold text-foreground">Financial Goals</h2>
                 <Link to="/settings" state={{ tab: "goals" }}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-[#1A5F3D] hover:underline">
+                  className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
                   <Settings className="w-3.5 h-3.5" /> Edit Goals
                 </Link>
               </div>
 
               {(!fp?.goals || fp.goals.length === 0) ? (
-                <div className="bg-white rounded-2xl p-10 border border-dashed border-gray-200 text-center">
-                  <Target className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 font-medium mb-1">No goals set yet</p>
-                  <p className="text-sm text-gray-400 mb-4">Add financial goals to track your progress</p>
+                <div className="bg-card rounded-2xl p-10 border border-dashed border-border text-center">
+                  <Target className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-muted-foreground font-medium mb-1">No goals set yet</p>
+                  <p className="text-sm text-muted-foreground mb-4">Add financial goals to track your progress</p>
                   <Link to="/settings" state={{ tab: "goals" }}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#1A5F3D] text-white rounded-xl text-sm font-semibold hover:bg-[#154d32] transition">
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:opacity-90 transition">
                     <Target className="w-4 h-4" /> Add Your First Goal
                   </Link>
                 </div>
               ) : (
               <>
-              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                <h3 className="font-bold text-gray-900 mb-6 text-sm">Goal Progress Tracker</h3>
+              <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+                <h3 className="font-bold text-foreground mb-6 text-sm">Goal Progress Tracker</h3>
                 {fp?.goals.map((g) => (
                   <GoalBar key={g.id} name={g.name} icon={g.icon}
                     current={g.currentAmount} target={g.targetAmount} year={g.targetYear} />
@@ -697,34 +725,34 @@ export function Dashboard() {
                   const years = g.targetYear - new Date().getFullYear();
                   const monthlyNeeded = years > 0 ? Math.round(remaining / (years * 12)) : 0;
                   return (
-                    <div key={g.id} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                    <div key={g.id} className="bg-card rounded-2xl p-5 border border-border shadow-sm">
                       <div className="flex items-center gap-3 mb-3">
                         <span className="text-2xl">{g.icon}</span>
                         <div>
-                          <p className="font-semibold text-gray-900 text-sm">{g.name}</p>
-                          <p className="text-xs text-gray-400">Target: {g.targetYear}</p>
+                          <p className="font-semibold text-foreground text-sm">{g.name}</p>
+                          <p className="text-xs text-muted-foreground">Target: {g.targetYear}</p>
                         </div>
                         <div className="ml-auto text-right">
-                          <p className="text-lg font-bold text-[#1A5F3D]">{pct}%</p>
+                          <p className="text-lg font-bold text-primary">{pct}%</p>
                         </div>
                       </div>
                       <div className="space-y-1.5 text-xs">
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Achieved</span>
-                          <span className="font-semibold text-gray-800">{fmt(g.currentAmount)}</span>
+                          <span className="text-muted-foreground">Achieved</span>
+                          <span className="font-semibold text-foreground">{fmt(g.currentAmount)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Target</span>
-                          <span className="font-semibold text-gray-800">{fmt(g.targetAmount)}</span>
+                          <span className="text-muted-foreground">Target</span>
+                          <span className="font-semibold text-foreground">{fmt(g.targetAmount)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-500">Remaining</span>
+                          <span className="text-muted-foreground">Remaining</span>
                           <span className="font-semibold text-amber-600">{fmt(remaining)}</span>
                         </div>
                         {monthlyNeeded > 0 && (
-                          <div className="flex justify-between pt-1 border-t border-gray-100">
-                            <span className="text-gray-500">Monthly needed</span>
-                            <span className="font-bold text-[#1A5F3D]">{fmt(monthlyNeeded)}</span>
+                          <div className="flex justify-between pt-1 border-t border-border">
+                            <span className="text-muted-foreground">Monthly needed</span>
+                            <span className="font-bold text-primary">{fmt(monthlyNeeded)}</span>
                           </div>
                         )}
                       </div>
@@ -740,8 +768,8 @@ export function Dashboard() {
           {/* ════ TAB: INSIGHTS ════ */}
           {activeTab === "insights" && (
             <div className="space-y-4 max-w-2xl">
-              <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                <h3 className="font-bold text-gray-900 mb-5 text-sm">
+              <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+                <h3 className="font-bold text-foreground mb-5 text-sm">
                   🧠 Personalised Financial Insights
                 </h3>
                 <div className="space-y-3">

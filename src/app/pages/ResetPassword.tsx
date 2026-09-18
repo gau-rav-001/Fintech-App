@@ -26,7 +26,7 @@ function PasswordStrength({ password }: { password: string }) {
   ];
   const score  = checks.filter((c) => c.pass).length;
   const labels = ["", "Weak", "Fair", "Good", "Strong"];
-  const colors = ["", "bg-red-400", "bg-amber-400", "bg-blue-400", "bg-[#1A5F3D]"];
+  const colors = ["", "bg-red-400", "bg-amber-400", "bg-blue-400", "bg-primary"];
 
   if (!password) return null;
 
@@ -35,15 +35,15 @@ function PasswordStrength({ password }: { password: string }) {
       <div className="flex gap-1 mb-1.5">
         {[1, 2, 3, 4].map((i) => (
           <div key={i}
-            className={`h-1 flex-1 rounded-full transition-all duration-300 ${i <= score ? colors[score] : "bg-gray-200"}`}
+            className={`h-1 flex-1 rounded-full transition-all duration-300 ${i <= score ? colors[score] : "bg-muted"}`}
           />
         ))}
       </div>
       <div className="flex items-center justify-between flex-wrap gap-1">
-        <span className="text-xs text-gray-500">{labels[score] || "Too weak"}</span>
+        <span className="text-xs text-muted-foreground">{labels[score] || "Too weak"}</span>
         <div className="flex gap-2 flex-wrap">
           {checks.map((c) => (
-            <span key={c.label} className={`text-xs ${c.pass ? "text-[#1A5F3D]" : "text-gray-400"}`}>
+            <span key={c.label} className={`text-xs ${c.pass ? "text-primary" : "text-muted-foreground/70"}`}>
               {c.pass ? "✓" : "·"} {c.label}
             </span>
           ))}
@@ -71,18 +71,18 @@ export function ResetPassword() {
   // No token — show error immediately
   if (!token) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#f0faf4] via-white to-[#e8f5ee] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-gradient-to-br from-[#f0faf4] via-background to-[#e8f5ee] dark:from-background dark:via-background dark:to-background flex items-center justify-center p-6">
         <div className="w-full max-w-md text-center">
-          <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-8 h-8 text-red-500" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Invalid Reset Link</h2>
-          <p className="text-gray-500 mb-6">
+          <h2 className="text-2xl font-bold text-foreground mb-2">Invalid Reset Link</h2>
+          <p className="text-muted-foreground mb-6">
             This password reset link is invalid or has already been used.
           </p>
           <Link
             to="/login"
-            className="inline-flex items-center gap-2 py-3 px-6 bg-gradient-to-r from-[#1A5F3D] to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg transition-all"
+            className="inline-flex items-center gap-2 py-3 px-6 bg-gradient-to-r from-primary to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg transition-all"
           >
             Back to Sign In
           </Link>
@@ -117,16 +117,17 @@ export function ResetPassword() {
   }
 
   const inputCls = (hasErr: boolean) =>
-    `w-full pl-12 pr-12 py-3 border rounded-xl text-sm outline-none transition-all bg-white ${
+    `w-full pl-12 pr-12 py-3 border rounded-xl text-sm outline-none transition-all bg-card text-foreground ${
       hasErr
         ? "border-red-400 focus:ring-2 focus:ring-red-300"
-        : "border-gray-200 focus:ring-2 focus:ring-[#1A5F3D]/30 focus:border-[#1A5F3D]"
+        : "border-border focus:ring-2 focus:ring-primary/30 focus:border-primary"
     }`;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#f0faf4] via-white to-[#e8f5ee] flex">
+    <div className="min-h-screen bg-gradient-to-br from-[#f0faf4] via-background to-[#e8f5ee] dark:from-background dark:via-background dark:to-background flex">
 
-      {/* Left panel */}
+      {/* Left panel — intentional permanent dark-green brand panel (split-screen
+          marketing design), stays as literal colors regardless of theme. */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-[#1A5F3D] to-[#0d3b25] flex-col justify-center items-center p-16 text-white">
         <div className="max-w-md">
           <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center mb-8">
@@ -163,29 +164,29 @@ export function ResetPassword() {
                 exit={{ opacity: 0, x: -16 }} transition={{ duration: 0.25 }}
               >
                 <div className="flex items-center justify-center mb-6">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center shadow-lg">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-[#3FAF7D] flex items-center justify-center shadow-lg">
                     <ShieldCheck className="w-8 h-8 text-white" />
                   </div>
                 </div>
 
-                <h2 className="text-3xl font-bold text-gray-900 mb-2 text-center">Reset Password</h2>
-                <p className="text-gray-500 mb-8 text-center">Enter your new password below.</p>
+                <h2 className="text-3xl font-bold text-foreground mb-2 text-center">Reset Password</h2>
+                <p className="text-muted-foreground mb-8 text-center">Enter your new password below.</p>
 
                 {error && (
                   <motion.div
                     initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-                    className="flex items-start gap-2 mb-5 p-3 bg-red-50 border border-red-200 rounded-xl"
+                    className="flex items-start gap-2 mb-5 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/40 rounded-xl"
                   >
                     <AlertCircle className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
-                    <p className="text-sm text-red-700">{error}</p>
+                    <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
                   </motion.div>
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-5" noValidate>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                    <label className="block text-sm font-medium text-foreground/80 mb-2">New Password</label>
                     <div className="relative">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                       <input
                         type={showPw ? "text" : "password"}
                         value={password}
@@ -196,7 +197,7 @@ export function ResetPassword() {
                         autoComplete="new-password"
                       />
                       <button type="button" onClick={() => setShowPw((v) => !v)} tabIndex={-1}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                         {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
@@ -205,9 +206,9 @@ export function ResetPassword() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                    <label className="block text-sm font-medium text-foreground/80 mb-2">Confirm New Password</label>
                     <div className="relative">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                       <input
                         type={showCPw ? "text" : "password"}
                         value={confirmPw}
@@ -221,7 +222,7 @@ export function ResetPassword() {
                         autoComplete="new-password"
                       />
                       <button type="button" onClick={() => setShowCPw((v) => !v)} tabIndex={-1}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors">
                         {showCPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
@@ -229,12 +230,12 @@ export function ResetPassword() {
                   </div>
 
                   <button type="submit" disabled={loading}
-                    className="w-full py-3 bg-gradient-to-r from-[#1A5F3D] to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-[1.01] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:scale-100">
+                    className="w-full py-3 bg-gradient-to-r from-primary to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-[1.01] transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:scale-100">
                     {loading ? <><Spinner /> Resetting…</> : <>Reset Password <ArrowRight className="w-5 h-5" /></>}
                   </button>
 
                   <div className="text-center">
-                    <Link to="/login" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                    <Link to="/login" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                       ← Back to sign in
                     </Link>
                   </div>
@@ -249,16 +250,16 @@ export function ResetPassword() {
                 transition={{ duration: 0.3 }}
                 className="text-center py-8"
               >
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center mx-auto mb-6 shadow-xl">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-[#3FAF7D] flex items-center justify-center mx-auto mb-6 shadow-xl">
                   <CheckCircle className="w-10 h-10 text-white" />
                 </div>
-                <h2 className="text-3xl font-bold text-gray-900 mb-3">Password Reset!</h2>
-                <p className="text-gray-600 mb-8">
+                <h2 className="text-3xl font-bold text-foreground mb-3">Password Reset!</h2>
+                <p className="text-muted-foreground mb-8">
                   Your password has been updated. You can now sign in with your new password.
                 </p>
                 <button
                   onClick={() => navigate("/login", { replace: true })}
-                  className="inline-flex items-center gap-2 py-3 px-8 bg-gradient-to-r from-[#1A5F3D] to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-[1.01] transition-all"
+                  className="inline-flex items-center gap-2 py-3 px-8 bg-gradient-to-r from-primary to-[#2D7A4E] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-[1.01] transition-all"
                 >
                   Sign In <ArrowRight className="w-5 h-5" />
                 </button>

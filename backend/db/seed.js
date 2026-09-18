@@ -2,7 +2,7 @@
 // Creates the default admin account. Only runs once (checks for existing admin).
 // The seeded email must match ADMIN_ALLOWED_EMAILS in backend/.env
 
-require("dotenv").config({ path: require("path").join(__dirname, "../.env") });
+require("../config/env").loadEnv();
 const bcrypt = require("bcryptjs");
 const db     = require("../config/db");
 

@@ -34,15 +34,15 @@ export function AuthCallback() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="min-h-screen bg-[#F7F9FB] flex items-center justify-center">
+    <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-[#3FAF7D] flex items-center justify-center">
           <span className="text-white font-bold text-xl">SF</span>
         </div>
-        <p className="text-sm text-gray-500">Completing sign-in…</p>
+        <p className="text-sm text-muted-foreground">Completing sign-in…</p>
         <div className="flex gap-1.5">
           {[0, 1, 2].map(i => (
-            <div key={i} className="w-2 h-2 rounded-full bg-[#1A5F3D] animate-bounce"
+            <div key={i} className="w-2 h-2 rounded-full bg-primary animate-bounce"
               style={{ animationDelay: `${i * 0.15}s` }} />
           ))}
         </div>

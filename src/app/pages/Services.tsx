@@ -732,7 +732,7 @@ export function Services() {
   }, [location.hash]);
 
   return (
-    <div className="min-h-screen bg-[#F7F9FB]">
+    <div className="min-h-screen bg-background text-foreground">
       <Navbar />
 
       {/* ── Hero ── */}
@@ -765,17 +765,17 @@ export function Services() {
       </section>
 
       {/* ── Services Grid ── */}
-      <section className="relative py-24 overflow-hidden bg-[radial-gradient(circle_at_top,rgba(63,175,125,0.10),transparent_30%),linear-gradient(to_bottom,#f8fbf9,#eef5f1_45%,#ffffff_100%)]">
-        <div className="absolute inset-0 opacity-[0.35] [background-image:linear-gradient(rgba(26,95,61,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(26,95,61,0.05)_1px,transparent_1px)] [background-size:36px_36px]" />
+      <section className="relative py-24 overflow-hidden bg-[radial-gradient(circle_at_top,rgba(63,175,125,0.10),transparent_30%),linear-gradient(to_bottom,#f8fbf9,#eef5f1_45%,#ffffff_100%)] dark:bg-[radial-gradient(circle_at_top,rgba(63,175,125,0.16),transparent_34%),linear-gradient(to_bottom,#0f1512,#111a15_48%,#0f1512_100%)]">
+        <div className="absolute inset-0 opacity-[0.35] [background-image:linear-gradient(rgba(26,95,61,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(26,95,61,0.05)_1px,transparent_1px)] dark:[background-image:linear-gradient(rgba(232,240,234,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(232,240,234,0.05)_1px,transparent_1px)] [background-size:36px_36px]" />
         <div className="absolute top-0 left-1/4 h-72 w-72 rounded-full bg-[#B8E986]/20 blur-3xl" />
         <div className="absolute bottom-0 right-1/4 h-72 w-72 rounded-full bg-[#3FAF7D]/10 blur-3xl" />
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <div className="inline-flex items-center rounded-full border border-[#d7eadf] bg-white/70 backdrop-blur px-4 py-2 text-sm font-medium text-[#1A5F3D] mb-4">
+            <div className="inline-flex items-center rounded-full border border-border bg-card/70 backdrop-blur px-4 py-2 text-sm font-medium text-primary mb-4">
               {page.gridBadge}
             </div>
-            <p className="text-gray-600 text-base leading-7">
+            <p className="text-muted-foreground text-base leading-7">
               {page.gridDescription}
             </p>
           </div>
@@ -808,19 +808,19 @@ export function Services() {
       </section>
 
       {/* ── Why Choose Us ── */}
-      <section className="relative py-24 overflow-hidden bg-white">
+      <section className="relative py-24 overflow-hidden bg-card">
         <div className="absolute top-0 left-1/4 h-64 w-64 rounded-full bg-[#B8E986]/10 blur-3xl" />
         <div className="absolute bottom-0 right-1/4 h-64 w-64 rounded-full bg-[#3FAF7D]/10 blur-3xl" />
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center rounded-full border border-[#d7eadf] bg-[#f6fbf8] px-4 py-2 text-sm font-medium text-[#1A5F3D] mb-5">
+            <div className="inline-flex items-center rounded-full border border-border bg-muted px-4 py-2 text-sm font-medium text-primary mb-5">
               {page.whyBadge}
             </div>
-            <h2 className="text-4xl font-bold text-gray-900 mb-4 tracking-[-0.02em]">
+            <h2 className="text-4xl font-bold text-foreground mb-4 tracking-[-0.02em]">
               {page.whyTitle}
             </h2>
-            <p className="text-lg text-gray-500 max-w-xl mx-auto leading-7">
+            <p className="text-lg text-muted-foreground max-w-xl mx-auto leading-7">
               {page.whyDescription}
             </p>
           </div>
@@ -952,16 +952,16 @@ function ServiceFlipCard({
       >
         {/* Front */}
         <div
-          className={`absolute inset-0 rounded-[28px] border border-white/70 bg-gradient-to-br ${softBg} backdrop-blur-xl shadow-[0_10px_30px_rgba(15,23,42,0.06)] [backface-visibility:hidden] overflow-hidden`}
+          className={`absolute inset-0 rounded-[28px] border border-white/70 dark:border-border bg-gradient-to-br ${softBg} dark:bg-[linear-gradient(135deg,rgba(31,42,36,0.96),rgba(22,31,26,0.92))] backdrop-blur-xl shadow-[0_10px_30px_rgba(15,23,42,0.06)] dark:shadow-[0_18px_45px_rgba(0,0,0,0.28)] [backface-visibility:hidden] overflow-hidden`}
         >
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/70 to-transparent opacity-90" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/70 dark:from-white/10 to-transparent opacity-90" />
           <div className={`pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full ${glow} blur-3xl opacity-80`} />
-          <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-inset ring-white/60" />
-          <div className="pointer-events-none absolute inset-0 opacity-[0.20] [background-image:linear-gradient(rgba(26,95,61,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(26,95,61,0.07)_1px,transparent_1px)] [background-size:28px_28px]" />
+          <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-inset ring-white/60 dark:ring-white/10" />
+          <div className="pointer-events-none absolute inset-0 opacity-[0.20] [background-image:linear-gradient(rgba(26,95,61,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(26,95,61,0.07)_1px,transparent_1px)] dark:[background-image:linear-gradient(rgba(232,240,234,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(232,240,234,0.06)_1px,transparent_1px)] [background-size:28px_28px]" />
 
           <div className="relative z-10 flex h-full flex-col justify-between p-7">
             <div className="flex items-start justify-between">
-              <div className="inline-flex items-center rounded-full border border-white/70 bg-white/55 px-3 py-1 text-xs font-semibold text-gray-700 backdrop-blur">
+              <div className="inline-flex items-center rounded-full border border-white/70 dark:border-border bg-white/55 dark:bg-muted/80 px-3 py-1 text-xs font-semibold text-foreground backdrop-blur">
                 {tag}
               </div>
               <div className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${accent} text-white shadow-[0_10px_25px_rgba(0,0,0,0.15)]`}>
@@ -970,19 +970,19 @@ function ServiceFlipCard({
             </div>
 
             <div>
-              <h3 className="text-3xl font-bold text-gray-900 tracking-[-0.03em] leading-tight">
+              <h3 className="text-3xl font-bold text-foreground tracking-[-0.03em] leading-tight">
                 {title}
               </h3>
-              <p className="mt-3 text-gray-600 leading-7 text-sm max-w-md">
+              <p className="mt-3 text-muted-foreground leading-7 text-sm max-w-md">
                 {frontDescription}
               </p>
             </div>
 
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-[#1A5F3D]">
+              <p className="text-sm font-medium text-primary">
                 {tapToExplore}
               </p>
-              <div className="inline-flex items-center gap-2 rounded-full bg-white/60 px-4 py-2 text-sm font-semibold text-gray-800 backdrop-blur">
+              <div className="inline-flex items-center gap-2 rounded-full bg-white/60 dark:bg-muted/80 px-4 py-2 text-sm font-semibold text-foreground backdrop-blur">
                 {viewDetails}
                 <ArrowRight className="w-4 h-4" />
               </div>
@@ -991,21 +991,21 @@ function ServiceFlipCard({
         </div>
 
         {/* Back */}
-        <div className="absolute inset-0 rounded-[28px] border border-white/70 bg-white/80 backdrop-blur-xl shadow-[0_12px_35px_rgba(15,23,42,0.08)] [backface-visibility:hidden] [transform:rotateY(180deg)] overflow-hidden">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/85 to-transparent opacity-95" />
+        <div className="absolute inset-0 rounded-[28px] border border-white/70 dark:border-border bg-white/80 dark:bg-card/95 backdrop-blur-xl shadow-[0_12px_35px_rgba(15,23,42,0.08)] dark:shadow-[0_18px_45px_rgba(0,0,0,0.28)] [backface-visibility:hidden] [transform:rotateY(180deg)] overflow-hidden">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/85 dark:from-white/10 to-transparent opacity-95" />
           <div className={`pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full ${glow} blur-3xl opacity-80`} />
-          <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-inset ring-white/60" />
+          <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-inset ring-white/60 dark:ring-white/10" />
 
           <div className="relative z-10 flex h-full flex-col p-6">
             <div className="flex items-start justify-between gap-4 mb-3">
               <div className="flex-1 min-w-0">
-                <div className="inline-flex items-center rounded-full border border-[#dbeee3] bg-[#f3faf6] px-3 py-1 text-xs font-semibold text-[#1A5F3D] mb-2">
+                <div className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold text-primary mb-2">
                   {tag}
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 tracking-[-0.02em] leading-tight">
+                <h3 className="text-xl font-bold text-foreground tracking-[-0.02em] leading-tight">
                   {title}
                 </h3>
-                <p className="text-gray-500 mt-1.5 leading-6 text-sm">
+                <p className="text-muted-foreground mt-1.5 leading-6 text-sm">
                   {description}
                 </p>
               </div>
@@ -1016,7 +1016,7 @@ function ServiceFlipCard({
                   e.stopPropagation();
                   setFlipped(false);
                 }}
-                className="shrink-0 flex h-9 w-9 items-center justify-center rounded-xl bg-[#eef8f2] text-[#1A5F3D] hover:bg-[#1A5F3D] hover:text-white transition-all"
+                className="shrink-0 flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-primary hover:bg-primary hover:text-primary-foreground transition-all"
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
@@ -1025,8 +1025,8 @@ function ServiceFlipCard({
             <div className="space-y-1.5 mb-5 mt-1 flex-1">
               {features.map((feature, idx) => (
                 <div key={idx} className="flex items-start gap-2.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#1A5F3D] mt-2 flex-shrink-0" />
-                  <span className="text-gray-700 text-sm leading-6">{feature}</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 flex-shrink-0" />
+                  <span className="text-muted-foreground text-sm leading-6">{feature}</span>
                 </div>
               ))}
             </div>
@@ -1035,7 +1035,7 @@ function ServiceFlipCard({
               <Link
                 to={learnMoreUrl}
                 onClick={(e) => e.stopPropagation()}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#eef8f2] px-4 py-2.5 text-sm font-semibold text-[#1A5F3D] transition-all duration-300 hover:bg-[#1A5F3D] hover:text-white"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-muted px-4 py-2.5 text-sm font-semibold text-primary transition-all duration-300 hover:bg-primary hover:text-primary-foreground"
               >
                 {learnMoreLabel}
                 <ArrowRight className="w-4 h-4" />
@@ -1046,7 +1046,7 @@ function ServiceFlipCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#eef8f2] px-4 py-2.5 text-sm font-semibold text-[#1A5F3D] transition-all duration-300 hover:bg-[#1A5F3D] hover:text-white"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-muted px-4 py-2.5 text-sm font-semibold text-primary transition-all duration-300 hover:bg-primary hover:text-primary-foreground"
               >
                 {learnMoreLabel}
                 <ArrowRight className="w-4 h-4" />
@@ -1071,12 +1071,12 @@ function FeatureCard({
   description: string;
 }) {
   return (
-    <div className="group text-center rounded-[24px] border border-gray-100 bg-white p-8 shadow-sm transition-all duration-500 hover:-translate-y-1.5 hover:shadow-[0_20px_50px_rgba(26,95,61,0.08)]">
+    <div className="group text-center rounded-[24px] border border-border bg-card p-8 shadow-sm transition-all duration-500 hover:-translate-y-1.5 hover:shadow-[0_20px_50px_rgba(26,95,61,0.08)] dark:hover:shadow-[0_20px_50px_rgba(0,0,0,0.28)]">
       <div className="w-14 h-14 bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] rounded-xl flex items-center justify-center text-white mx-auto mb-5 shadow-[0_8px_20px_rgba(26,95,61,0.22)] transition duration-500 group-hover:scale-110">
         {icon}
       </div>
-      <h3 className="text-lg font-bold text-gray-900 mb-2">{title}</h3>
-      <p className="text-gray-500 text-sm leading-6">{description}</p>
+      <h3 className="text-lg font-bold text-foreground mb-2">{title}</h3>
+      <p className="text-muted-foreground text-sm leading-6">{description}</p>
     </div>
   );
 }

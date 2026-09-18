@@ -30,12 +30,13 @@ export function Home() {
   const home = t.home;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <Navbar />
 
-      {/* Hero Section */}
+      {/* Hero Section — intentional permanent dark gradient (marketing hero),
+          stays as literal colors regardless of theme. */}
       <section className="relative overflow-hidden pt-20 pb-28 md:pb-32">
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,#050505_0%,#0b0f0d_22%,#0f241a_42%,#dfe9e4_78%,#ffffff_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,#050505_0%,#0b0f0d_22%,#0f241a_42%,#dfe9e4_78%,#ffffff_100%)] dark:bg-[linear-gradient(to_bottom,#050505_0%,#0b0f0d_30%,#0f241a_60%,#0a1410_100%)]" />
 
         <div className="absolute inset-0">
           <div className="absolute left-1/2 top-[38%] h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#2D7A4E]/30 blur-[140px]" />
@@ -44,7 +45,7 @@ export function Home() {
         </div>
 
         <div className="absolute inset-0 opacity-[0.14] [background-image:linear-gradient(rgba(255,255,255,0.22)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.22)_1px,transparent_1px)] [background-size:52px_52px]" />
-        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white/70 via-white/30 to-transparent pointer-events-none" />
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background/70 via-background/30 to-transparent pointer-events-none" />
 
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-14 items-center min-h-[720px]">
@@ -167,11 +168,11 @@ export function Home() {
                 </div>
               </div>
 
-              <div className="absolute -bottom-6 -left-6 hidden md:block rounded-2xl border border-[#D1FADF] bg-white shadow-xl p-4">
-                <p className="text-xs text-gray-500 mb-1">
+              <div className="absolute -bottom-6 -left-6 hidden md:block rounded-2xl border border-[#D1FADF] dark:border-primary/30 bg-card shadow-xl p-4">
+                <p className="text-xs text-muted-foreground mb-1">
                   {home.monthlySip}
                 </p>
-                <p className="text-xl font-bold text-gray-900">
+                <p className="text-xl font-bold text-foreground">
                   ₹15,000
                 </p>
               </div>
@@ -185,22 +186,22 @@ export function Home() {
         </div>
       </section>
 
-      {/* Services Overview */}
-      <section className="relative py-24 overflow-hidden bg-[radial-gradient(circle_at_top,rgba(63,175,125,0.10),transparent_30%),linear-gradient(to_bottom,#f8fbf9,#eef5f1_45%,#ffffff_100%)]">
-        <div className="absolute inset-0 opacity-[0.35] [background-image:linear-gradient(rgba(26,95,61,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(26,95,61,0.05)_1px,transparent_1px)] [background-size:36px_36px]" />
+      {/* Services Overview — light mesh gradient with dark equivalent */}
+      <section className="relative py-24 overflow-hidden bg-[radial-gradient(circle_at_top,rgba(63,175,125,0.10),transparent_30%),linear-gradient(to_bottom,#f8fbf9,#eef5f1_45%,#ffffff_100%)] dark:bg-[radial-gradient(circle_at_top,rgba(63,175,125,0.08),transparent_30%),linear-gradient(to_bottom,var(--background),var(--card)_45%,var(--background)_100%)]">
+        <div className="absolute inset-0 opacity-[0.35] dark:opacity-[0.12] [background-image:linear-gradient(rgba(26,95,61,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(26,95,61,0.05)_1px,transparent_1px)] [background-size:36px_36px]" />
         <div className="absolute top-0 left-1/4 h-72 w-72 rounded-full bg-[#B8E986]/20 blur-3xl" />
         <div className="absolute bottom-0 right-1/4 h-72 w-72 rounded-full bg-[#3FAF7D]/10 blur-3xl" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Section header */}
           <div className="text-center mb-14">
-            <div className="inline-flex items-center rounded-full border border-[#d7eadf] bg-white/70 backdrop-blur px-4 py-2 text-sm font-medium text-[#1A5F3D] mb-5">
+            <div className="inline-flex items-center rounded-full border border-[#d7eadf] dark:border-primary/30 bg-card/70 backdrop-blur px-4 py-2 text-sm font-medium text-primary mb-5">
               {home.servicesBadge}
             </div>
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 tracking-[-0.03em]">
+            <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4 tracking-[-0.03em]">
               {home.servicesTitle}
             </h2>
-            <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-8">
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-8">
               {home.servicesDescription}
             </p>
           </div>
@@ -281,7 +282,7 @@ export function Home() {
         <div className="flex justify-center mt-10">
           <Link
             to="/services"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-full border-2 border-[#1A5F3D] text-[#1A5F3D] font-semibold hover:bg-[#1A5F3D] hover:text-white transition-all"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full border-2 border-primary text-primary font-semibold hover:bg-primary hover:text-white transition-all"
           >
             View All Services
             <ArrowRight className="w-4 h-4" />
@@ -289,21 +290,21 @@ export function Home() {
         </div>
       </section>
 
-      {/* Calculator Preview */}
-      <section className="relative py-24 overflow-hidden bg-[radial-gradient(circle_at_top,rgba(63,175,125,0.10),transparent_28%),linear-gradient(to_bottom,#f8fbf9,#eef5f1_45%,#ffffff_100%)]">
-        <div className="absolute inset-0 opacity-[0.35] [background-image:linear-gradient(rgba(26,95,61,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(26,95,61,0.05)_1px,transparent_1px)] [background-size:36px_36px]" />
+      {/* Calculator Preview — light mesh gradient with dark equivalent */}
+      <section className="relative py-24 overflow-hidden bg-[radial-gradient(circle_at_top,rgba(63,175,125,0.10),transparent_28%),linear-gradient(to_bottom,#f8fbf9,#eef5f1_45%,#ffffff_100%)] dark:bg-[radial-gradient(circle_at_top,rgba(63,175,125,0.08),transparent_28%),linear-gradient(to_bottom,var(--background),var(--card)_45%,var(--background)_100%)]">
+        <div className="absolute inset-0 opacity-[0.35] dark:opacity-[0.12] [background-image:linear-gradient(rgba(26,95,61,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(26,95,61,0.05)_1px,transparent_1px)] [background-size:36px_36px]" />
         <div className="absolute top-0 right-1/4 h-72 w-72 rounded-full bg-[#B8E986]/20 blur-3xl" />
         <div className="absolute bottom-0 left-1/4 h-72 w-72 rounded-full bg-[#3FAF7D]/10 blur-3xl" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <div className="inline-flex items-center rounded-full border border-[#d7eadf] bg-white/70 backdrop-blur px-4 py-2 text-sm font-medium text-[#1A5F3D] mb-5">
+            <div className="inline-flex items-center rounded-full border border-[#d7eadf] dark:border-primary/30 bg-card/70 backdrop-blur px-4 py-2 text-sm font-medium text-primary mb-5">
               {home.calculatorsBadge}
             </div>
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4 tracking-[-0.03em]">
+            <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4 tracking-[-0.03em]">
               {home.calculatorsTitle}
             </h2>
-            <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto leading-8">
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-8">
               {home.calculatorsDescription}
             </p>
           </div>
@@ -325,8 +326,8 @@ export function Home() {
         </div>
       </section>
 
-      {/* Financial Planning Preview */}
-      <section className="relative py-24 overflow-hidden bg-[linear-gradient(to_bottom,#ffffff_0%,#f4faf7_30%,#eaf5ef_60%,#ffffff_100%)]">
+      {/* Financial Planning Preview — light mesh gradient with dark equivalent */}
+      <section className="relative py-24 overflow-hidden bg-[linear-gradient(to_bottom,#ffffff_0%,#f4faf7_30%,#eaf5ef_60%,#ffffff_100%)] dark:bg-[linear-gradient(to_bottom,var(--background)_0%,var(--card)_30%,var(--card)_60%,var(--background)_100%)]">
         <div className="absolute inset-0">
           <div className="absolute left-1/2 top-[40%] h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#3FAF7D]/15 blur-[120px]" />
           <div className="absolute left-[30%] top-[30%] h-[220px] w-[220px] rounded-full bg-[#1A5F3D]/10 blur-[90px]" />
@@ -340,15 +341,15 @@ export function Home() {
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <div className="inline-flex items-center rounded-full border border-[#d7eadf] bg-[#f6fbf8] px-4 py-2 text-sm font-medium text-[#1A5F3D] mb-5">
+              <div className="inline-flex items-center rounded-full border border-[#d7eadf] dark:border-primary/30 bg-[#f6fbf8] dark:bg-primary/10 px-4 py-2 text-sm font-medium text-primary mb-5">
                 {home.planningBadge}
               </div>
 
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6 tracking-[-0.03em]">
+              <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-6 tracking-[-0.03em]">
                 {home.planningTitle}
               </h2>
 
-              <p className="text-lg md:text-xl text-gray-600 mb-8 leading-8">
+              <p className="text-lg md:text-xl text-muted-foreground mb-8 leading-8">
                 {home.planningDescription}
               </p>
 
@@ -361,13 +362,14 @@ export function Home() {
 
               <Link
                 to="/planner"
-                className="inline-flex items-center px-7 py-3.5 bg-gradient-to-r from-[#1A5F3D] to-[#2D7A4E] text-white rounded-full font-semibold hover:shadow-[0_12px_30px_rgba(26,95,61,0.25)] transition-all"
+                className="inline-flex items-center px-7 py-3.5 bg-gradient-to-r from-primary to-[#2D7A4E] text-white rounded-full font-semibold hover:shadow-[0_12px_30px_rgba(26,95,61,0.25)] transition-all"
               >
                 {home.startPlanning}
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Link>
             </div>
 
+            {/* Intentional permanent brand-green panel, stays as literal colors */}
             <div className="relative overflow-hidden rounded-[32px] border border-white/60 bg-[linear-gradient(135deg,#1A5F3D,#2D7A4E,#3FAF7D)] p-10 text-white shadow-[0_20px_60px_rgba(26,95,61,0.18)]">
               <div className="absolute inset-0 opacity-[0.15] [background-image:linear-gradient(rgba(255,255,255,0.25)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.25)_1px,transparent_1px)] [background-size:34px_34px]" />
               <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
@@ -401,8 +403,8 @@ export function Home() {
         </div>
       </section>
 
-      {/* Webinars Highlight */}
-      <section className="relative py-24 overflow-hidden bg-[linear-gradient(to_bottom,#ffffff_0%,#f4faf7_30%,#eaf5ef_60%,#ffffff_100%)]">
+      {/* Webinars Highlight — light mesh gradient with dark equivalent */}
+      <section className="relative py-24 overflow-hidden bg-[linear-gradient(to_bottom,#ffffff_0%,#f4faf7_30%,#eaf5ef_60%,#ffffff_100%)] dark:bg-[linear-gradient(to_bottom,var(--background)_0%,var(--card)_30%,var(--card)_60%,var(--background)_100%)]">
         <div className="absolute inset-0">
           <div className="absolute left-1/2 top-[35%] h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#3FAF7D]/15 blur-[120px]" />
           <div className="absolute left-[25%] top-[25%] h-[200px] w-[200px] rounded-full bg-[#1A5F3D]/10 blur-[90px]" />
@@ -412,10 +414,10 @@ export function Home() {
         <div className="absolute inset-0 opacity-[0.08] [background-image:linear-gradient(rgba(26,95,61,0.3)_1px,transparent_1px),linear-gradient(90deg,rgba(26,95,61,0.3)_1px,transparent_1px)] [background-size:40px_40px]" />
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+            <h2 className="text-4xl font-bold text-foreground mb-4">
               {home.webinarsTitle}
             </h2>
-            <p className="text-xl text-gray-600">
+            <p className="text-xl text-muted-foreground">
               {home.webinarsDescription}
             </p>
           </div>
@@ -444,7 +446,7 @@ export function Home() {
           <div className="text-center mt-12">
             <Link
               to="/webinars"
-              className="inline-flex items-center px-6 py-3 border-2 border-[#1A5F3D] text-[#1A5F3D] rounded-xl font-semibold hover:bg-[#1A5F3D] hover:text-white transition-all"
+              className="inline-flex items-center px-6 py-3 border-2 border-primary text-primary rounded-xl font-semibold hover:bg-primary hover:text-white transition-all"
             >
               {home.viewAllWebinars}
               <ArrowRight className="w-5 h-5 ml-2" />
@@ -456,7 +458,7 @@ export function Home() {
       {/* Testimonials Section */}
         <Testimonials />      
 
-      {/* WhatsApp CTA */}
+      {/* WhatsApp CTA — intentional permanent dark-green gradient, stays as literal colors */}
       <section className="relative py-16 overflow-hidden bg-[linear-gradient(135deg,#0c1f17_0%,#123d2a_40%,#1A5F3D_70%,#2D7A4E_100%)]">
         <div className="absolute inset-0">
           <div className="absolute left-1/2 top-[45%] h-[350px] w-[350px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#3FAF7D]/15 blur-[100px]" />
@@ -541,27 +543,27 @@ function CalculatorPreview({
       <motion.div
         whileHover={{ y: -8 }}
         transition={{ duration: 0.3 }}
-        className="group relative overflow-hidden rounded-[28px] border border-white/60 bg-white/55 backdrop-blur-xl p-8 shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition-all duration-500 hover:border-[#d8f46b]/70 hover:shadow-[0_20px_60px_rgba(26,95,61,0.14)]"
+        className="group relative overflow-hidden rounded-[28px] border border-border bg-card/55 backdrop-blur-xl p-8 shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition-all duration-500 hover:border-[#d8f46b]/70 hover:shadow-[0_20px_60px_rgba(26,95,61,0.14)]"
       >
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/75 to-transparent opacity-80" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-card/75 to-transparent opacity-80" />
         <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-[#B8E986]/20 blur-3xl opacity-0 transition duration-500 group-hover:opacity-100" />
-        <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-inset ring-white/50" />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[#1A5F3D]/[0.03] via-transparent to-[#B8E986]/[0.10] opacity-0 transition duration-500 group-hover:opacity-100" />
+        <div className="pointer-events-none absolute inset-0 rounded-[28px] ring-1 ring-inset ring-border/50" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.03] via-transparent to-[#B8E986]/[0.10] opacity-0 transition duration-500 group-hover:opacity-100" />
 
         <div className="relative z-10">
-          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] text-white shadow-[0_10px_25px_rgba(26,95,61,0.28)] transition duration-500 group-hover:scale-110 group-hover:rotate-[-3deg]">
+          <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-[#3FAF7D] text-white shadow-[0_10px_25px_rgba(26,95,61,0.28)] transition duration-500 group-hover:scale-110 group-hover:rotate-[-3deg]">
             <Calculator className="w-8 h-8" />
           </div>
 
-          <h3 className="text-2xl font-bold text-gray-900 mb-2 tracking-[-0.02em]">
+          <h3 className="text-2xl font-bold text-foreground mb-2 tracking-[-0.02em]">
             {title}
           </h3>
 
-          <p className="text-base leading-7 text-gray-600 mb-6">
+          <p className="text-base leading-7 text-muted-foreground mb-6">
             {description}
           </p>
 
-          <span className="inline-flex items-center gap-2 rounded-full bg-[#eef8f2] px-4 py-2 text-sm font-semibold text-[#1A5F3D] transition-all duration-300 group-hover:bg-[#1A5F3D] group-hover:text-white">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#eef8f2] dark:bg-primary/15 px-4 py-2 text-sm font-semibold text-primary transition-all duration-300 group-hover:bg-primary group-hover:text-white">
             {cta}
             <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
           </span>
@@ -574,8 +576,8 @@ function CalculatorPreview({
 function Feature({ text }: { text: string }) {
   return (
     <div className="flex items-center">
-      <CheckCircle className="w-6 h-6 text-[#1A5F3D] mr-3" />
-      <span className="text-gray-700">{text}</span>
+      <CheckCircle className="w-6 h-6 text-primary mr-3" />
+      <span className="text-foreground/80">{text}</span>
     </div>
   );
 }
@@ -594,21 +596,21 @@ function WebinarCard({
   return (
     <motion.div
       whileHover={{ y: -8 }}
-      className="group relative overflow-hidden rounded-[28px] border border-white/60 bg-white/50 backdrop-blur-xl shadow-[0_10px_30px_rgba(15,23,42,0.08)] transition-all duration-500 hover:shadow-[0_20px_60px_rgba(26,95,61,0.15)]"
+      className="group relative overflow-hidden rounded-[28px] border border-border bg-card/50 backdrop-blur-xl shadow-[0_10px_30px_rgba(15,23,42,0.08)] transition-all duration-500 hover:shadow-[0_20px_60px_rgba(26,95,61,0.15)]"
     >
       <div className="absolute -top-10 -right-10 h-36 w-36 rounded-full bg-[#B8E986]/20 blur-3xl opacity-0 group-hover:opacity-100 transition duration-500" />
 
-      <div className="relative h-48 bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center overflow-hidden">
+      <div className="relative h-48 bg-gradient-to-br from-primary to-[#3FAF7D] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 opacity-[0.2] [background-image:linear-gradient(rgba(255,255,255,0.25)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.25)_1px,transparent_1px)] [background-size:30px_30px]" />
         <Video className="w-16 h-16 text-white/50 relative z-10 group-hover:scale-110 transition" />
       </div>
 
       <div className="p-6">
-        <h3 className="font-bold text-gray-900 mb-2 text-lg">
+        <h3 className="font-bold text-foreground mb-2 text-lg">
           {title}
         </h3>
-        <p className="text-sm text-gray-600 mb-1">{date}</p>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted-foreground mb-1">{date}</p>
+        <p className="text-sm text-muted-foreground">
           {byLabel} {speaker}
         </p>
       </div>

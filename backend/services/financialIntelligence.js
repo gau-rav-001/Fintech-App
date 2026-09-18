@@ -28,6 +28,26 @@ function toMonthly(amount, frequency) {
   return annualizeAmount(amount, frequency) / 12;
 }
 
+function normalizeInvestmentType(type = "") {
+  const t = String(type).toLowerCase();
+  const aliases = {
+    stocks: "stock",
+    mutual_fund: "mutual_fund",
+    mutual_funds: "mutual_fund",
+    bonds: "bond",
+    fixed_deposit: "fd",
+  };
+  return aliases[t] || t || "other";
+}
+
+function investmentBucket(type) {
+  const t = normalizeInvestmentType(type);
+  if (["stock", "stocks", "mutual_fund", "crypto"].includes(t)) return "equity";
+  if (["bond", "fd", "ppf", "nps"].includes(t)) return "debt";
+  if (["gold", "real_estate"].includes(t)) return "alternative";
+  return "other";
+}
+
 // ── Helper: Fetch cached FinancialProfile (safe — never throws) ───────────────
 // ── Helper: Build a profile-shaped snapshot from the User record's JSON fields
 // (income, expenses, investments, loans, goals — set via onboarding) ─────────
@@ -71,9 +91,17 @@ async function getProfile(userId) {
       const monthlySavings = totalMonthlyIncome - totalMonthlyExpense - monthlyEmiAmount;
       const savingsRatePct = totalMonthlyIncome > 0 ? (monthlySavings / totalMonthlyIncome) * 100 : 0;
 
-      const monthlySipAmount = investments
+      let monthlySipAmount = investments
         .filter((inv) => inv.isSIP || inv.frequency === "monthly")
         .reduce((sum, inv) => sum + (parseFloat(inv.amount) || 0), 0);
+      if (monthlySipAmount === 0) {
+        monthlySipAmount = investments
+          .filter((inv) => normalizeInvestmentType(inv.type || inv.investmentType) === "mutual_fund")
+          .reduce((sum, inv) => {
+            const duration = Math.max(1, parseFloat(inv.durationMonths) || 0);
+            return sum + ((parseFloat(inv.investedAmount) || 0) / duration);
+          }, 0);
+      }
 
       userSnapshot = {
         totalAssets,
@@ -91,6 +119,8 @@ async function getProfile(userId) {
         monthlyEmiAmount,
         emergencyFundTarget: totalMonthlyExpense * 6,
         emergencyFundCurrent: 0,
+        userInvestments: investments,
+        userGoals: user.goals || [],
         _source: "user_json",
       };
     }
@@ -315,38 +345,56 @@ async function calculateBudgetHealth(userId) {
 
 // ── Calculate Goal Progress ───────────────────────────────────────────────────
 async function calculateGoalProgress(userId) {
-  const goals = await Goal.findByUserId(userId, { status: "active" });
+  const [dbGoals, profile] = await Promise.all([
+    Goal.findByUserId(userId, { status: "active" }),
+    getProfile(userId),
+  ]);
+
+  const goals = dbGoals.length > 0
+    ? dbGoals
+    : (profile?.userGoals || []).map((goal) => ({
+        id: goal.id,
+        name: goal.name,
+        category: goal.category,
+        targetAmount: parseFloat(goal.targetAmount) || 0,
+        currentAmount: parseFloat(goal.currentSavings ?? goal.currentAmount) || 0,
+        targetDate: goal.targetDate,
+        monthlyContribution: parseFloat(goal.monthlyContribution) || 0,
+      }));
 
   return goals.map((goal) => {
-    const progress = (goal.currentAmount / goal.targetAmount) * 100;
+    const targetAmount = parseFloat(goal.targetAmount) || 0;
+    const currentAmount = parseFloat(goal.currentAmount) || 0;
+    const monthlyContribution = parseFloat(goal.monthlyContribution) || 0;
+    const progress = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
     const today = new Date();
     const target = new Date(goal.targetDate);
     const monthsRemaining = Math.max(0, (target - today) / (30 * 24 * 60 * 60 * 1000));
-    const gap = goal.targetAmount - goal.currentAmount;
+    const gap = Math.max(0, targetAmount - currentAmount);
     const monthlyNeeded = monthsRemaining > 0 ? gap / monthsRemaining : 0;
 
     // Projected completion with current contribution
     const projectedMonths =
-      goal.monthlyContribution > 0 ? gap / goal.monthlyContribution : Infinity;
+      monthlyContribution > 0 ? gap / monthlyContribution : Infinity;
 
     return {
       id: goal.id,
       name: goal.name,
       category: goal.category,
-      targetAmount: goal.targetAmount,
-      currentAmount: goal.currentAmount,
+      targetAmount,
+      currentAmount,
       progress: parseFloat(progress.toFixed(2)),
       gap,
       targetDate: goal.targetDate,
       monthsRemaining: parseFloat(monthsRemaining.toFixed(1)),
       monthlyNeeded: parseFloat(monthlyNeeded.toFixed(2)),
-      currentContribution: goal.monthlyContribution,
+      currentContribution: monthlyContribution,
       projectedMonths: projectedMonths === Infinity ? null : parseFloat(projectedMonths.toFixed(1)),
-      onTrack: goal.monthlyContribution >= monthlyNeeded,
+      onTrack: monthlyContribution >= monthlyNeeded,
       status:
         progress >= 100
           ? "achieved"
-          : goal.monthlyContribution >= monthlyNeeded
+          : monthlyContribution >= monthlyNeeded
           ? "on_track"
           : "behind",
     };
@@ -381,19 +429,29 @@ async function calculateInvestmentGrowth(userId) {
   const returnPct = totalInvested > 0 ? (totalReturns / totalInvested) * 100 : 0;
 
   // By type (only available from granular investment records)
-  const byType = investments.reduce((acc, inv) => {
-    if (!acc[inv.investmentType]) {
-      acc[inv.investmentType] = {
+  const byTypeSource = investments.length > 0
+    ? investments
+    : (profile?.userInvestments || []).map((inv) => ({
+        investmentType: normalizeInvestmentType(inv.investmentType || inv.type),
+        investedAmount: parseFloat(inv.investedAmount) || 0,
+        currentValue: parseFloat(inv.currentValue) || 0,
+        returns: (parseFloat(inv.currentValue) || 0) - (parseFloat(inv.investedAmount) || 0),
+      }));
+
+  const byType = byTypeSource.reduce((acc, inv) => {
+    const type = normalizeInvestmentType(inv.investmentType || inv.type);
+    if (!acc[type]) {
+      acc[type] = {
         invested: 0,
         value: 0,
         returns: 0,
         count: 0,
       };
     }
-    acc[inv.investmentType].invested += inv.investedAmount;
-    acc[inv.investmentType].value += inv.currentValue;
-    acc[inv.investmentType].returns += inv.returns;
-    acc[inv.investmentType].count++;
+    acc[type].invested += inv.investedAmount;
+    acc[type].value += inv.currentValue;
+    acc[type].returns += inv.returns;
+    acc[type].count++;
     return acc;
   }, {});
 
@@ -486,21 +544,30 @@ async function calculateRetirementCorpus(userId, params = {}) {
 
 // ── Calculate Risk Profile ────────────────────────────────────────────────────
 async function calculateRiskProfile(userId) {
-  const [investments, netWorthData, debtData, emergencyData] = await Promise.all([
+  const [investments, netWorthData, debtData, emergencyData, profile] = await Promise.all([
     Investment.findByUserId(userId, { activeOnly: true }),
     calculateNetWorth(userId),
     calculateDebtToIncomeRatio(userId),
     calculateEmergencyFund(userId),
+    getProfile(userId),
   ]);
 
+  const investmentSource = investments.length > 0
+    ? investments
+    : (profile?.userInvestments || []).map((inv) => ({
+        investmentType: normalizeInvestmentType(inv.investmentType || inv.type),
+        currentValue: parseFloat(inv.currentValue) || 0,
+      }));
+
   // Asset allocation
-  const allocation = investments.reduce(
+  const allocation = investmentSource.reduce(
     (acc, inv) => {
-      if (["stock", "crypto"].includes(inv.investmentType)) {
+      const bucket = investmentBucket(inv.investmentType || inv.type);
+      if (bucket === "equity") {
         acc.equity += inv.currentValue;
-      } else if (["bond", "fd", "ppf"].includes(inv.investmentType)) {
+      } else if (bucket === "debt") {
         acc.debt += inv.currentValue;
-      } else if (["gold", "real_estate"].includes(inv.investmentType)) {
+      } else if (bucket === "alternative") {
         acc.alternative += inv.currentValue;
       }
       return acc;
@@ -527,7 +594,7 @@ async function calculateRiskProfile(userId) {
   riskScore += Math.min(emergencyData.coverageMonths * 3.33, 20);
 
   // 4. Diversification (max 10 points)
-  const assetTypes = new Set(investments.map((i) => i.investmentType)).size;
+  const assetTypes = new Set(investmentSource.map((i) => normalizeInvestmentType(i.investmentType || i.type))).size;
   riskScore += Math.min(assetTypes * 2, 10);
 
   riskScore = Math.min(100, Math.max(0, riskScore));

@@ -7,7 +7,12 @@
     "build": "vite build",
     "dev": "vite",
     "dev:backend": "cd backend && npm run dev",
-    "dev:all": "concurrently --names \"FRONT,BACK\" --prefix-colors \"cyan,green\" \"npm run dev\" \"npm run dev:backend\""
+    "dev:all": "concurrently --names \"FRONT,BACK\" --prefix-colors \"cyan,green\" \"npm run dev\" \"npm run dev:backend\"",
+    "docker:up": "docker compose up -d",
+    "docker:build": "docker compose up --build -d",
+    "docker:db": "docker compose up postgres redis -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
   },
   "dependencies": {
     "react": "18.3.1",

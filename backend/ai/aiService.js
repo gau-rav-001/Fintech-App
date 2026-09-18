@@ -3,30 +3,140 @@
 
 const { AIConversation, AIMessage } = require("../models/AIEntities");
 const tools = require("./tools/financialTools");
-const { getModel } = require("./llm/gemini");
+const { getModel, DEFAULT_CHAT_MODEL } = require("./llm/gemini");
+const { callGroq, callOpenRouter, callOllama } = require("./llm/providerClient");
+const {
+  queryCache,
+  solveFinancialMath,
+  getInstantCasualResponse,
+  getFrequentFinanceResponse,
+  generateSuggestedPrompts,
+} = require("./brain/financialBrain");
+const { getLiveStockQuote } = require("./services/marketDataService");
+const { getLiveGroundingContext } = require("./services/webSearchService");
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const AI_CONFIG = {
-  model: process.env.GEMINI_MODEL_CHAT || "gemini-2.5-flash",
-  systemPrompt: `You are SmartFinance AI — a thoughtful, knowledgeable Indian wealth advisor having a real conversation with the user.
+  model: process.env.GEMINI_MODEL_CHAT || DEFAULT_CHAT_MODEL,
+  maxContextTokens: parseInt(process.env.AI_MAX_CONTEXT_TOKENS || "14000", 10),
+  maxConversationTokens: parseInt(process.env.AI_MAX_CONVERSATION_TOKENS || "70000", 10),
+  warnConversationTokens: parseInt(process.env.AI_WARN_CONVERSATION_TOKENS || "56000", 10),
+  systemPrompt: `You are SmartFinance AI — an advanced, omni-capable intelligent assistant and senior wealth advisor.
 
-How you communicate:
-- Talk like a sharp, friendly human advisor would — not like a report generator. Vary your phrasing; don't reuse the same openers or structure every time.
-- Default to natural prose. Use markdown formatting (tables, headers, bullet lists) only when it genuinely helps — e.g. comparing numbers across categories, or listing multiple distinct items. For a quick answer, just answer in 1-3 sentences.
-- Reason out loud when it's useful: connect cause and effect ("because your EMI is eating 30% of income, your savings rate is capped at...") rather than just listing numbers.
-- Match the user's tone and depth. A casual one-line question gets a short, direct answer. An open-ended "help me think through my finances" gets a deeper, more exploratory response.
-- Avoid generic disclaimers, repeated framing phrases ("Let's analyse...", "Based on the information available..."), or restating the question back at the user.
-
-What you know:
-- PERSONAL DATA: When real account data is provided below, treat it as ground truth — quote exact figures, and reason across multiple data points together (income vs expenses vs investments vs goals) when relevant to the question, even if the user only asked about one of them.
-- GENERAL KNOWLEDGE: For concepts, market info, strategies, or anything not about this specific user's account, answer from your expertise as an Indian financial advisor — practical, current, and specific to Indian markets (NSE/BSE, mutual funds, PPF/NPS/EPF, Indian tax sections).
-
-Formatting conventions:
-- ₹, lakhs (L), crores (Cr) for amounts.
-- If real data shows ₹0 or missing values for something relevant to the question, say so plainly and naturally — don't turn it into a bulleted "next steps" checklist unless the user is clearly asking what to do next.
-
-Stay focused on personal finance, investing, and wealth management — but a brief friendly aside or acknowledgment of small talk is fine before steering back.`,
+Core Capabilities:
+1. UNIVERSAL INTELLIGENCE: You are fully equipped to answer ANY query across all disciplines — coding & software architecture, mathematics, science, technology, business, career guidance, creative writing, translation, general reasoning, and everyday problem solving. Never refuse a general query.
+2. WEALTH & FINANCIAL MASTERY: For personal finance, investing, tax planning, budgeting, debt management, and retirement, you provide elite, actionable advisory tailored to the Indian financial ecosystem (SEBI, RBI, Income Tax Act, Mutual Funds, Stocks, Gold, Real Estate, NPS, PPF, EPF).
+3. PERSONAL DATA REASONING: When real account/profile data is provided, treat it as ground truth. Connect cause and effect across income, expenses, loans, investments, and goals with exact numbers.
+4. COMMUNICATION STYLE:
+   - Sharp, friendly, and structured. Match the user's depth (concise for direct questions, thorough for open-ended analysis).
+   - Use clean Markdown formatting: bold highlights, clear bullet points, code blocks with syntax highlighting when providing code, and structured sections.
+   - For currency, use ₹, Lakhs (L), and Crores (Cr) in Indian context, or standard currency when specified.
+   - If data or facts are unavailable, state it plainly without guessing.`,
 };
+
+function estimateTokens(text = "") {
+  return Math.ceil(String(text).length / 4);
+}
+
+function compactText(text = "", maxChars = 900) {
+  const clean = String(text).replace(/\s+/g, " ").trim();
+  if (clean.length <= maxChars) return clean;
+  return `${clean.slice(0, maxChars - 1).trim()}…`;
+}
+
+function conversationTokenEstimate(messages) {
+  return messages.reduce((sum, m) => sum + estimateTokens(m.content), 0);
+}
+
+function buildOlderConversationSummary(messages) {
+  if (!messages.length) return "";
+
+  const userTurns = messages.filter(m => m.role === "user");
+  const firstUser = userTurns[0]?.content;
+  const recentTopics = userTurns.slice(-6).map(m => compactText(m.content, 180));
+
+  return [
+    "Earlier conversation summary for continuity:",
+    firstUser ? `- Conversation started with: ${compactText(firstUser, 260)}` : "",
+    recentTopics.length ? `- Earlier user topics: ${recentTopics.join(" | ")}` : "",
+    "Use this only as background. Give priority to the latest user question and the recent turns below.",
+    "If the user asks a new question, answer the new question directly and do not repeat earlier answers unless asked for a recap.",
+  ].filter(Boolean).join("\n");
+}
+
+function normalizeGeminiHistory(history) {
+  const normalized = [];
+
+  for (const item of history) {
+    const text = item?.parts?.[0]?.text;
+    if (!text || !text.trim()) continue;
+
+    const role = item.role === "model" ? "model" : "user";
+    const last = normalized[normalized.length - 1];
+    if (last && last.role === role) {
+      last.parts[0].text += `\n\n${text}`;
+    } else {
+      normalized.push({ role, parts: [{ text }] });
+    }
+  }
+
+  while (normalized[0]?.role === "model") normalized.shift();
+  return normalized;
+}
+
+function buildGeminiHistory(allMessages) {
+  const previousMessages = allMessages.slice(0, -1);
+  const maxContextTokens = AI_CONFIG.maxContextTokens;
+  const selected = [];
+  let usedTokens = 0;
+
+  for (let i = previousMessages.length - 1; i >= 0; i--) {
+    const msg = previousMessages[i];
+    const cost = estimateTokens(msg.content) + 16;
+    if (selected.length >= 28 || usedTokens + cost > maxContextTokens) break;
+    selected.unshift(msg);
+    usedTokens += cost;
+  }
+
+  const omitted = previousMessages.slice(0, previousMessages.length - selected.length);
+  const history = [];
+  const summary = buildOlderConversationSummary(omitted);
+
+  if (summary) {
+    history.push({
+      role: "user",
+      parts: [{ text: summary }],
+    });
+  }
+
+  history.push(...selected.map(m => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  })));
+
+  return {
+    history: normalizeGeminiHistory(history),
+    omittedCount: omitted.length,
+    selectedCount: selected.length,
+    usedTokens,
+  };
+}
+
+function buildConversationLimitMessage(totalTokens, messageCount) {
+  return `This chat is getting too long for me to use reliably in one context window.
+
+You have about ${Math.round(totalTokens).toLocaleString("en-IN")} tokens across ${messageCount} messages in this thread. If I continue here, I may miss earlier details or repeat myself.
+
+Please start a new chat and paste a short summary of what you want to continue. A useful starter would be:
+
+> Continue from my previous financial planning chat. My current focus is: [goal/problem]. Key numbers are: [income, expenses, investments, loans, goals].`;
+}
+
+function appendContextWarning(responseText, totalTokens) {
+  if (totalTokens < AI_CONFIG.warnConversationTokens) return responseText;
+  if (responseText.includes("This chat is getting long")) return responseText;
+  return `${responseText}\n\n---\n\nNote: this chat is getting long. If my replies start missing older details, start a new chat and paste a short summary so I can continue cleanly.`;
+}
 
 const TOOL_DEFINITIONS = [
   { name: "getFinancialProfile",  description: "Complete snapshot: net worth, income, expenses, savings rate, emergency fund" },
@@ -46,76 +156,61 @@ const TOOL_DEFINITIONS = [
   { name: "taxPlanner",           description: "Tax: 80C used/remaining, home loan deduction, total tax saved" },
 ];
 
-// ── Greetings / small talk — no tools, no data needed ────────────────────────
-const GREETING_PATTERNS = [
-  "^hi$", "^hii+$", "^hey$", "^hello$", "^helo$", "^namaste$", "^sup$",
-  "^good morning$", "^good afternoon$", "^good evening$", "^good night$",
-  "^how are you", "^how r u", "^what's up", "^whats up", "^wassup",
-  "^thanks", "^thank you", "^ok$", "^okay$", "^cool$", "^great$", "^nice$",
-  "^bye$", "^goodbye$", "^see you", "^take care",
-  "^lol$", "^haha", "^😊", "^🙏",
+// ── Greetings / small talk (Strict check to prevent misclassifying math or code) ────
+const GREETING_EXACT = [
+  "hi", "hii", "hiii", "hey", "heyy", "hello", "helo", "namaste", "sup",
+  "good morning", "good afternoon", "good evening", "good night",
+  "how are you", "how r u", "what's up", "whats up", "wassup",
+  "thanks", "thank you", "thx", "ok", "okay", "cool", "great", "nice",
+  "bye", "goodbye", "see you", "take care",
 ];
 
 function isGreeting(query) {
-  const q = query.toLowerCase().trim();
-  // Short non-financial messages (under 6 words, no financial keywords)
-  const financialKeywords = ["money", "invest", "loan", "emi", "sip", "tax", "budget",
-    "income", "expense", "savings", "portfolio", "score", "goal", "retire",
-    "fund", "stock", "mutual", "wealth", "debt", "asset", "₹", "rs", "rupee"];
-  const wordCount = q.split(/\s+/).length;
-  if (wordCount <= 5 && !financialKeywords.some(k => q.includes(k))) {
-    // Check explicit greeting patterns
-    for (const p of GREETING_PATTERNS) {
-      if (new RegExp(p).test(q)) return true;
-    }
-    // Very short messages with no financial context are likely small talk
-    if (wordCount <= 2) return true;
+  const clean = (query || "").toLowerCase().trim().replace(/[!?.,]+$/, "");
+  if (GREETING_EXACT.includes(clean)) return true;
+  if (/^(hi|hey|hello|namaste|good\s+(morning|evening|afternoon))\b/i.test(clean) && clean.split(/\s+/).length <= 4) {
+    return true;
   }
   return false;
 }
 
-// ── Patterns that need NO user data (general knowledge questions) ─────────────
+// ── General knowledge patterns ────────────────────────────────────────────────
 const GENERAL_KNOWLEDGE_PATTERNS = [
-  // Market / stocks
-  "best stock", "top stock", "which stock", "stock market", "buy stock", "sell stock",
-  "nifty", "sensex", "bse", "nse", "ipo", "market today", "market news",
-  "which mutual fund", "best mutual fund", "top mutual fund", "recommended fund",
-  "best investment", "where should i invest", "investment option",
-  // Concepts
-  "what is sip", "what is ppf", "what is nps", "what is elss", "what is fd",
-  "what is inflation", "what is compound interest", "explain", "how does",
-  "difference between", "what is a",
-  // Tax concepts
-  "what is 80c", "what is hra", "how to save tax", "tax slab", "new tax regime", "old tax regime",
-  // Generic advice not about user
-  "tips for", "how to invest", "how to save", "guide to", "strategy for",
-  "best way to", "advice on", "suggest me",
+  "what is ", "what are ", "explain ", "how does ", "how do ", "difference between",
+  "meaning of ", "who is ", "where is ", "when was ", "why is ", "tell me about",
+  "how to ", "steps to ", "guide on ", "tutorial", "best practice", "formula for",
+  "calculate ", "write a ", "code ", "function ", "script ", "program ",
+  "nifty", "sensex", "rbi", "sebi", "inflation", "gdp", "repo rate",
+  "80c", "80d", "new tax regime", "old tax regime", "elss", "ppf", "epf", "nps",
+  "sip vs", "mutual fund vs", "term insurance vs", "swp", "stp", "cagr", "xirr",
+  "fd vs", "gold vs", "real estate vs", "emergency fund",
 ];
 
 // ── Patterns that clearly need user's personal data ───────────────────────────
 const PERSONAL_DATA_PATTERNS = [
   "my ", "i have", "i earn", "i spend", "my score", "my portfolio", "my loan",
   "my budget", "my goal", "my retirement", "my investment", "my income",
-  "my expense", "my savings", "my tax", "my health", "my wealth",
-  "am i ", "do i ", "can i ", "should i ", "will i ", "how am i",
+  "my expense", "my savings", "my tax", "my health", "my wealth", "my profile",
+  "am i ", "do i ", "can i afford", "can i buy", "should i buy", "will i have enough",
   "how is my", "what is my", "show me my", "analyse my", "analyze my",
 ];
 
+const PERSONAL_PRONOUN_PATTERNS = [
+  /\b(my|mine)\b/,
+  /\bi\s+(earn|spend|save|invest|owe|have|hold|pay|need|want)\b/,
+];
+
+function isPersonalDataQuery(query) {
+  const q = (query || "").toLowerCase().trim();
+  return PERSONAL_DATA_PATTERNS.some((p) => q.includes(p)) ||
+    PERSONAL_PRONOUN_PATTERNS.some((p) => p.test(q));
+}
+
 // ── Classify query type ───────────────────────────────────────────────────────
 function isGeneralKnowledge(query) {
-  const q = query.toLowerCase().trim();
-
-  // If it explicitly mentions "my" or personal context → always personal
-  for (const p of PERSONAL_DATA_PATTERNS) {
-    if (q.includes(p)) return false;
-  }
-
-  // If it matches general knowledge patterns → no tools needed
-  for (const p of GENERAL_KNOWLEDGE_PATTERNS) {
-    if (q.includes(p)) return true;
-  }
-
-  return false;
+  const q = (query || "").toLowerCase().trim();
+  if (isPersonalDataQuery(q)) return false;
+  return GENERAL_KNOWLEDGE_PATTERNS.some((p) => q.includes(p));
 }
 
 // ── Intent → tools map ────────────────────────────────────────────────────────
@@ -128,7 +223,7 @@ const INTENT_RULES = [
   { tools: ["goalAnalysis"],                              patterns: ["my goal", "am i on track", "goal progress", "saving for", "milestone"] },
   { tools: ["investmentAdvisor", "getInvestmentSummary"], patterns: ["optimize my", "rebalance", "my asset allocation", "portfolio advice"] },
   { tools: ["getInvestmentSummary"],                      patterns: ["my investment", "my portfolio", "my sip", "my returns", "my mutual fund", "my stocks", "my ppf", "my nps"] },
-  { tools: ["budgetAnalysis"],                            patterns: ["my budget", "my spending", "my expenses", "where does my money", "my savings rate", "am i saving", "my income", "my salary"] },
+  { tools: ["budgetAnalysis"],                            patterns: ["budget", "monthly budget", "analyse my monthly budget", "analyze my monthly budget", "my spending", "my expenses", "where does my money", "my savings rate", "am i saving", "my income", "my salary"] },
   { tools: ["riskAnalysis"],                              patterns: ["my risk", "my risk profile", "how risky am i"] },
   { tools: ["wealthForecast"],                            patterns: ["my wealth", "how much will i have", "project my", "my forecast", "my future wealth"] },
   { tools: ["affordabilityCheck"],                        patterns: ["can i afford", "can i buy", "should i buy", "is it worth buying"] },
@@ -209,9 +304,9 @@ function buildFallbackResponse(toolName, data) {
   }
   switch (toolName) {
     case "calculateHealthScore": {
-      const score = n(data.score);
+      const score = n(data.score || data.overallScore);
       const bar = "█".repeat(Math.round(score / 10)).padEnd(10, "░");
-      return `## 🏥 Financial Health: **${score}/100 — Grade ${data.grade || "N/A"}**
+      return `## 🏥 Financial Health: **${score.toFixed(score % 1 ? 1 : 0)}/100 — Grade ${data.grade || "N/A"}**
 \`${bar}\`
 
 **✅ Strengths:**
@@ -232,42 +327,51 @@ ${(data.recommendations || []).map((r, i) => `${i + 1}. ${r}`).join("\n") || "1.
       const cats = Object.entries(data.categoryBreakdown || {})
         .sort(([, a], [, b]) => b - a)
         .slice(0, 5).map(([c, v]) => `• ${c}: ${fmt(v)}`).join("\n");
-      return `## 💰 Monthly Budget
+      return `## Monthly Budget
 
-| | Amount |
-|---|---|
-| Income | **${fmt(inc)}** |
-| Expenses | ${fmt(exp)} |
-| Savings | **${fmt(sav)}** |
-| Savings Rate | **${pct(rate)}** |
+**Income:** ${fmt(inc)}
+**Expenses:** ${fmt(exp)}
+**Savings:** ${fmt(sav)}
+**Savings rate:** ${pct(rate)}
 
 ${rate < 10 ? "⚠️ Savings rate critically low." : rate < 20 ? "⚠️ Aim for at least 20% savings rate." : "✅ Great savings discipline!"}
 ${cats ? `\n**Top expense categories:**\n${cats}` : ""}`;
     }
+    case "riskAnalysis": {
+      const score = n(data.score || data.riskScore);
+      const alloc = data.allocation || {};
+      const factors = data.factors || {};
+      return `## Risk Profile: **${data.category || data.riskCategory || "N/A"}**
+
+**Risk score:** ${score}/100
+**Equity:** ${pct(alloc.equity)}
+**Debt:** ${pct(alloc.debt)}
+**Alternative:** ${pct(alloc.alternative)}
+**Debt ratio:** ${pct(factors.debtRatio)}
+**Emergency coverage:** ${n(factors.emergencyCoverage).toFixed(1)} months
+
+${score >= 70 ? "Your profile is growth-oriented, but make sure to maintain an adequate emergency fund for resilience." : "Your risk profile is balanced. Maintain steady diversification across assets."}`;
+    }
     case "getInvestmentSummary": {
       const p = data.portfolio || {};
       if (!n(p.currentValue) && !n(p.totalInvested)) return "⚠️ No investments found. Add your investments in **Settings → Investments**.";
-      return `## 📊 Investment Portfolio
+      return `## Investment Portfolio
 
-| | Amount |
-|---|---|
-| Portfolio Value | **${fmt(p.currentValue)}** |
-| Total Invested | ${fmt(p.totalInvested)} |
-| Returns | ${fmt(p.returns)} (${pct(p.returnPct)}) |
-| Monthly SIP | **${fmt(data.monthlySIP)}** |
-| Diversification | ${data.diversification || "—"} |`;
+**Portfolio value:** ${fmt(p.currentValue)}
+**Total invested:** ${fmt(p.totalInvested)}
+**Returns:** ${fmt(p.returns)} (${pct(p.returnPct)})
+**Monthly SIP:** ${fmt(data.monthlySIP)}
+**Diversification:** ${data.diversification || "—"}`;
     }
     case "getLoanSummary": {
       if (!n(data.totalLoans)) return "🎉 **No active loans!** You are completely debt-free.";
       const loans = (data.loans || []).map(l => `• **${l.type}** — ${fmt(l.outstanding)} @ ${pct(l.rate)} | EMI: ${fmt(l.emi)}`).join("\n");
-      return `## 💳 Loans
+      return `## Loans
 
-| | Amount |
-|---|---|
-| Active Loans | ${data.totalLoans} |
-| Total Outstanding | **${fmt(data.totalOutstanding)}** |
-| Monthly EMI | ${fmt(data.totalEMI)} |
-| Debt-to-Income | ${pct(data.debtToIncomeRatio)} |
+**Active loans:** ${data.totalLoans}
+**Total outstanding:** ${fmt(data.totalOutstanding)}
+**Monthly EMI:** ${fmt(data.totalEMI)}
+**Debt-to-income:** ${pct(data.debtToIncomeRatio)}
 
 ${loans}`;
     }
@@ -279,12 +383,10 @@ ${loans}`;
     }
     case "retirementAnalysis": {
       const gap = n(data.gap);
-      return `## 🏖️ Retirement
+      return `## Retirement
 
-| | |
-|---|---|
-| Projected Corpus | **${fmt(data.projectedCorpus)}** |
-| Required Corpus | ${fmt(data.requiredCorpus)} |
+**Projected corpus:** ${fmt(data.projectedCorpus)}
+**Required corpus:** ${fmt(data.requiredCorpus)}
 
 ${data.sufficient ? `✅ On track! Surplus: ${fmt(Math.abs(gap))}` : `⚠️ Shortfall: **${fmt(Math.abs(gap))}**\n💡 Increase SIP by **${fmt(data.additionalSIPNeeded)}/month**.`}`;
     }
@@ -294,7 +396,7 @@ ${data.sufficient ? `✅ On track! Surplus: ${fmt(Math.abs(gap))}` : `⚠️ Sho
     }
     case "taxPlanner": {
       const d = data.deductions || {};
-      return `## 🧾 Tax Planning\n\n| | Amount |\n|---|---|\n| Annual Income | ${fmt(data.annualIncome)} |\n| 80C Invested | ${fmt(d.section80C)} |\n| 80C Remaining | **${fmt(d.remaining80C)}** |\n| Tax Saved | **${fmt(data.taxSaving)}** |\n\n${n(d.remaining80C) > 0 ? `💡 Invest **${fmt(d.remaining80C)} more** in ELSS/PPF/NPS to save another **${fmt(n(d.remaining80C) * 0.3)}**.` : "✅ 80C limit fully utilised!"}`;
+      return `## 🧾 Tax Planning\n\n| | Amount |\n|---|---|\n| Annual Income | ${fmt(data.annualIncome)} |\n| 80C Invested | ${fmt(d.section80C)} |\n| 80C Remaining | **${fmt(d.remaining80C)}** |\n| Tax Saved | **${fmt(data.taxSaved || data.taxSaving)}** |\n\n${n(d.remaining80C) > 0 ? `💡 Invest **${fmt(d.remaining80C)} more** in ELSS/PPF/NPS to save another **${fmt(n(d.remaining80C) * 0.3)}**.` : "✅ 80C limit fully utilised!"}`;
     }
     case "wealthForecast": {
       const cw = n(data.currentWealth), pw = n(data.projectedWealth);
@@ -322,87 +424,518 @@ ${data.sufficient ? `✅ On track! Surplus: ${fmt(Math.abs(gap))}` : `⚠️ Sho
     case "getFinancialProfile": {
       const nw = data.netWorth || {}, mo = data.monthly || {}, ef = data.emergencyFund || {};
       if (!n(mo.income) && !n(nw.total)) return "⚠️ Your profile is empty. Please complete it in **Settings** — add income, expenses, investments, and loans.";
-      return `## 👤 Financial Overview\n\n| | Amount |\n|---|---|\n| Net Worth | **${fmt(nw.total)}** |\n| Monthly Income | **${fmt(mo.income)}** |\n| Monthly Expenses | ${fmt(mo.expense)} |\n| Monthly Savings | ${fmt(mo.savings)} |\n| Savings Rate | ${pct(mo.savingsRate)} |\n| Emergency Fund | ${n(ef.coverage).toFixed(1)} months |`;
+      return `## Financial Overview\n\n**Net worth:** ${fmt(nw.total)}\n**Monthly income:** ${fmt(mo.income)}\n**Monthly expenses:** ${fmt(mo.expense)}\n**Monthly savings:** ${fmt(mo.savings)}\n**Savings rate:** ${pct(mo.savingsRate)}\n**Emergency fund:** ${n(ef.coverage).toFixed(1)} months`;
     }
     default:
       return `Data:\n\`\`\`\n${JSON.stringify(data, null, 2).slice(0, 1000)}\`\`\``;
   }
 }
 
+// ── Multi-Domain Offline Brain (Finance, Math, Coding, Science & Knowledge) ───
+function getGeneralKnowledgeFallback(query = "") {
+  const q = String(query).toLowerCase().trim();
+
+  // 1. Math / Percentages / Arithmetic Evaluator
+  const pctMatch = q.match(/(\d+(?:\.\d+)?)\s*%\s*(?:of)\s*(\d+(?:\.\d+)?)/);
+  if (pctMatch) {
+    const p = parseFloat(pctMatch[1]);
+    const total = parseFloat(pctMatch[2]);
+    const res = (p / 100) * total;
+    return `### 🧮 Calculation Result\n\n**${p}% of ${total.toLocaleString("en-IN")}** = **${res.toLocaleString("en-IN")}**\n\n*Formula:* \`(${p} / 100) × ${total} = ${res}\``;
+  }
+
+  const basicMath = q.match(/^(\d+(?:\.\d+)?)\s*([\+\-\*\/])\s*(\d+(?:\.\d+)?)$/);
+  if (basicMath) {
+    const a = parseFloat(basicMath[1]);
+    const op = basicMath[2];
+    const b = parseFloat(basicMath[3]);
+    let ans = 0;
+    if (op === "+") ans = a + b;
+    if (op === "-") ans = a - b;
+    if (op === "*") ans = a * b;
+    if (op === "/") ans = b !== 0 ? a / b : "Infinity (division by zero)";
+    return `### 🧮 Calculation Result\n\n\`${a} ${op} ${b} = ${ans}\``;
+  }
+
+  // 2. Rule of 72
+  if (/rule of 72/i.test(q)) {
+    return `### ⏱️ The Rule of 72: Doubling Time of Money\n\nThe **Rule of 72** estimates how many years it will take for an investment to double at a given annual return rate:\n\n$$\\text{Years to Double} \\approx \\frac{72}{\\text{Annual Return Rate (\\%)}}$$\n\n**Examples:**\n• At **12% p.a.** (Equity/Mutual Funds) $\\rightarrow 72 / 12 =$ **6 years to double**.\n• At **8% p.a.** (Fixed Income/EPF) $\\rightarrow 72 / 8 =$ **9 years to double**.\n• At **6% p.a.** (Savings/FD) $\\rightarrow 72 / 6 =$ **12 years to double**.`;
+  }
+
+  // 3. Indian Finance & Tax Topics
+  if (/sip|systematic investment/i.test(q)) {
+    return `### 📈 Systematic Investment Plan (SIP)
+
+A **SIP (Systematic Investment Plan)** allows you to invest a fixed amount regularly (monthly or weekly) in mutual funds.
+
+**Key Benefits:**
+• **Rupee Cost Averaging**: You buy more units when markets are down and fewer when markets are up, averaging your purchase cost.
+• **Power of Compounding**: Regular monthly investments of ₹10,000 for 15 years @ 12% p.a. grow to **~₹50.45 Lakhs** (total invested: ₹18 Lakhs).
+• **Discipline**: Automated investing removes emotion from volatile markets.
+
+💡 *Try our interactive SIP & Lumpsum Calculator on the **Calculators** page to simulate your returns.*`;
+  }
+
+  if (/tax|80c|80d|old regime|new regime|deduction|save tax|capital gain|ltcg|stcg/i.test(q)) {
+    return `### 🧾 Indian Tax Planning Guide (FY 2024-25 / AY 2025-26)
+
+**New Tax Regime (Default):**
+• Zero tax up to ₹7.75 Lakhs (with Standard Deduction of ₹75,000 and rebate u/s 87A).
+• Lower slab rates, but deductions like 80C, 80D, and HRA are not allowed.
+
+**Old Tax Regime (Optional):**
+• **Section 80C**: Save up to ₹1.5 Lakhs across ELSS Mutual Funds, PPF, EPF, NPS, and Term Insurance.
+• **Section 80D**: Up to ₹25,000 for self/family health insurance + ₹50,000 for senior citizen parents.
+• **Section 80CCD(1B)**: Additional ₹50,000 deduction exclusively for NPS.
+
+**Capital Gains Taxes (Budget 2024-25 Update):**
+• **LTCG (Listed Equity)**: 12.5% on gains exceeding ₹1.25 Lakhs per financial year.
+• **STCG (Listed Equity)**: 20% flat tax on equity held for under 12 months.`;
+  }
+
+  if (/emergency fund|contingency fund|liquid/i.test(q)) {
+    return `### 🛡️ Emergency Fund Essentials
+
+An emergency fund protects you from job loss, medical emergencies, or unforeseen home/auto repairs without liquidating investments.
+
+**Golden Rules:**
+1. **Target**: Maintain **6 to 12 months** of mandatory monthly expenses (Rent/EMI + Utilities + Groceries + Insurance).
+2. **Where to Park**: 
+   • 50% in High-Yield Savings Account / Liquid Mutual Funds (instant liquidity).
+   • 50% in Sweeping / Short-Term Fixed Deposits (FD).
+3. **Never Invest in Equity**: Emergency funds must have zero capital risk.`;
+  }
+
+  if (/50[\/\-]30[\/\-]20|budget rule|how to budget/i.test(q)) {
+    return `### 📊 The 50/30/20 Budgeting Rule
+
+The most effective rule of thumb for monthly income allocation:
+
+• **50% Needs**: Mandatory living expenses (Rent, EMIs, Groceries, Utilities, Basic Insurance).
+• **30% Wants**: Discretionary lifestyle spending (Dining out, Entertainment, Subscriptions, Vacations).
+• **20% Savings & Investments**: Wealth creation (SIPs, Emergency Fund, Retirement, Debt Prepayment).
+
+💡 *If you have high-interest debt, consider adjusting to 50% Needs, 20% Wants, and 30% Debt/Savings.*`;
+  }
+
+  if (/insurance|term insurance|health insurance/i.test(q)) {
+    return `### 🛡️ Insurance Strategy: Pure Protection
+
+1. **Term Life Insurance**:
+   • Sum assured should be **10x to 15x your annual income**.
+   • Choose a pure term plan with regular pay up to age 60-65. Avoid ULIPs or endowment policies.
+2. **Health Insurance**:
+   • Minimum ₹10 Lakhs to ₹25 Lakhs individual/family floater with a super top-up policy.
+   • Don't rely solely on employer group insurance.
+
+💡 *Check your insurance coverage gap on our **Insurance Gap Checker** page.*`;
+  }
+
+  if (/(?:how to invest in|what is|allocation in|best|basics of)\s+(?:mutual fund|index fund|large cap|small cap|equity fund|equity allocation)/i.test(q) || /^(mutual fund|index fund|large cap|small cap)$/i.test(q)) {
+    return `### 📊 Mutual Fund & Equity Allocation Strategy
+
+• **Beginners**: Start with Low-Cost **Nifty 50 Index Funds** or **Nifty LargeMidcap 250** funds.
+• **Core Portfolio**: 60-70% Large Cap / Index Funds + 20-30% Mid Cap / Flexi Cap + 10% Small Cap.
+• **Horizon**: Keep equity investments for a minimum 5-7 year timeframe to ride out market cycles.
+• **Direct vs Regular**: Always choose **Direct Growth** plans to save 1-1.5% in annual distributor commissions.`;
+  }
+
+  if (/gold|sgb|sovereign gold/i.test(q)) {
+    return `### 🪙 Gold Allocation & Strategy
+
+• **Ideal Allocation**: 5% to 10% of your total investment portfolio as a hedge against inflation and currency depreciation.
+• **Best Instruments**:
+  1. **Gold ETFs / Mutual Funds**: High liquidity, low tracking error, trades on NSE/BSE.
+  2. **Physical Gold**: Surcharge of making charges (8-25%) and storage risks.
+  3. **Digital Gold**: Subject to 3% GST and spread fees; ETFs are preferred for pure investment.`;
+  }
+
+  if (/debt payoff|snowball|avalanche|close loan/i.test(q)) {
+    return `### 💳 Debt Payoff Strategies: Avalanche vs Snowball
+
+1. **Debt Avalanche (Mathematically Optimal)**:
+   • Pay minimums on all loans.
+   • Put all extra money toward the loan with the **highest interest rate** (e.g. Credit Cards @ 36-42%, then Personal Loans @ 12-16%).
+   • Saves the most money in interest.
+
+2. **Debt Snowball (Psychological Momentum)**:
+   • Pay minimums on all loans.
+   • Attack the loan with the **smallest balance first**, regardless of rate.
+   • Builds quick confidence as loans get closed one by one.`;
+  }
+
+  // 4. Algorithms, Data Structures & Coding Fallbacks
+  if (/linked list|reverse.*list/i.test(q)) {
+    return `### 🐍 Python: Reverse a Linked List
+
+Here is the standard iterative solution ($O(n)$ time, $O(1)$ space):
+
+\`\`\`python
+class ListNode:
+    def __init__(self, val=0, next=None):
+        self.val = val
+        self.next = next
+
+def reverse_linked_list(head: ListNode) -> ListNode:
+    prev = None
+    curr = head
+    while curr:
+        next_node = curr.next  # store next pointer
+        curr.next = prev       # reverse pointer
+        prev = curr            # advance prev
+        curr = next_node       # advance curr
+    return prev
+\`\`\`
+
+**Complexity:**
+• **Time Complexity**: $O(n)$ where $n$ is the number of nodes.
+• **Space Complexity**: $O(1)$ in-place reversal.`;
+  }
+
+  if (/fibonacci/i.test(q)) {
+    return `### 🔢 Fibonacci Generator in Python
+
+\`\`\`python
+def fibonacci(n: int):
+    """Generate first n Fibonacci numbers."""
+    if n <= 0:
+        return []
+    sequence = [0, 1]
+    while len(sequence) < n:
+        sequence.append(sequence[-1] + sequence[-2])
+    return sequence[:n]
+
+# Example: first 10 numbers
+print(fibonacci(10))  # [0, 1, 1, 2, 3, 5, 8, 13, 21, 34]
+\`\`\``;
+  }
+
+  if (/palindrome/i.test(q)) {
+    return `### 🔤 Palindrome Check in Python & JavaScript
+
+**Python:**
+\`\`\`python
+def is_palindrome(s: str) -> bool:
+    clean = ''.join(c.lower() for c in s if c.isalnum())
+    return clean == clean[::-1]
+\`\`\`
+
+**JavaScript / TypeScript:**
+\`\`\`typescript
+function isPalindrome(str: string): boolean {
+  const clean = str.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return clean === clean.split('').reverse().join('');
+}
+\`\`\``;
+  }
+
+  if (/quantum|entanglement|quantum computing/i.test(q)) {
+    return `### ⚛️ Quantum Entanglement Explained Simply
+
+**Quantum entanglement** is a phenomenon in physics where two or more particles become interconnected such that the quantum state of one particle instantly dictates the state of the other, regardless of the distance separating them.
+
+**Key Concepts:**
+1. **Superposition**: Before measurement, a quantum particle exists in a probability cloud of multiple states simultaneously (both 0 and 1).
+2. **Instant Correlation**: When you measure the spin of particle A (say, Spin Up), particle B immediately assumes the opposite state (Spin Down), even if they are light-years apart.
+3. **Einstein's Reaction**: Albert Einstein famously called this *"spooky action at a distance"* because it seemed to violate the principle that nothing travels faster than light.
+4. **Modern Application**: Powers quantum encryption (QKD), quantum computing (qubit operations), and ultra-secure communications.`;
+  }
+
+  if (/transformer|llm|neural network|machine learning|artificial intelligence|ai work/i.test(q)) {
+    return `### 🧠 How Modern AI & Transformers Work
+
+Modern Large Language Models (LLMs) are built on the **Transformer Architecture** introduced in the 2017 paper *"Attention Is All You Need"*:
+
+1. **Tokenization**: Text is split into sub-word tokens (words or syllables converted to integer IDs).
+2. **Vector Embeddings**: Each token is converted into a high-dimensional vector capturing semantic meaning.
+3. **Self-Attention Mechanism**: Allows the model to weigh the relevance of every word in a sentence against every other word, understanding context and long-range dependencies.
+4. **Feed-Forward Layers & Generation**: Computes probability distributions over the vocabulary to predict the most likely next token sequentially.`;
+  }
+
+  // 5. General Tech / Software Engineering
+  if (/python|javascript|react|node|docker|sql|api|coding|git/i.test(q)) {
+    return `### 💻 Tech & Engineering Knowledge
+
+I am fully capable of writing code, debugging, architecture design, and system optimization across multiple stacks:
+• **Languages**: JavaScript, TypeScript, Python, SQL, Rust, C++, Go.
+• **Frameworks**: React, Next.js, Node.js, Express, FastAPI, Django.
+• **Infrastructure**: Docker, PostgreSQL, Redis, Nginx, CI/CD, Microservices.
+
+Feel free to paste your code, error message, or system design problem, and I'll break it down with step-by-step solutions!`;
+  }
+
+  return `### 💡 SmartFinance AI Omnipresent Assistant
+
+I can assist you with comprehensive insights across:
+• **Personal Finance & Wealth**: Net worth, budgeting, SIP compounding, health score, tax planning, and loans.
+• **Mathematics & Analytics**: Compounding calculations, EMI forecasting, statistical analysis, and formulas.
+• **Coding & Technology**: Full-stack engineering, debugging, API design, algorithms, and database optimization.
+• **General Knowledge & Strategy**: Research, business planning, career advice, and conceptual explanations.
+
+Feel free to ask your question in detail!`;
+}
+
 // ── Call Gemini ───────────────────────────────────────────────────────────────
-// systemInstruction is passed to getModel() — Gemini's native system prompt slot.
-// The user-facing `prompt` should contain ONLY the question + data context, never the system prompt.
 const FALLBACK_MODELS = [
-  process.env.GEMINI_MODEL_CHAT || "gemini-2.5-flash",
-  "gemini-2.0-flash",
+  process.env.GEMINI_MODEL_CHAT,
+  DEFAULT_CHAT_MODEL,
   "gemini-1.5-flash",
-];
+  "gemini-2.0-flash",
+  "gemini-1.5-pro",
+  "gemini-2.0-flash-lite",
+].filter(Boolean).filter((model, index, list) => list.indexOf(model) === index);
 
 function isOverloadedError(err) {
   const msg = (err?.message || "").toLowerCase();
   return msg.includes("503") || msg.includes("overloaded") || msg.includes("high demand") || msg.includes("unavailable");
 }
 
+function isAuthError(err) {
+  const msg = (err?.message || "").toLowerCase();
+  return msg.includes("401") || msg.includes("unauthorized") || msg.includes("invalid authentication") || msg.includes("access_token_type_unsupported") || msg.includes("api_key_invalid");
+}
+
+function isModelUnavailableError(err) {
+  const msg = (err?.message || "").toLowerCase();
+  return msg.includes("404") || msg.includes("not_found") || msg.includes("no longer available") || msg.includes("not found");
+}
+
+function isQuotaErrorMessage(msg = "") {
+  const text = String(msg).toLowerCase();
+  return text.includes("429") || text.includes("quota") || text.includes("too_many_requests") || text.includes("rate limit") || text.includes("resource_exhausted");
+}
+
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// ── Multi-Provider Unified LLM Caller ─────────────────────────────────────────
+async function callUnifiedLLM(prompt, systemPrompt = AI_CONFIG.systemPrompt, history = []) {
+  // 1. Try Groq (100% Free, blazing fast Llama 3.3 70B: https://console.groq.com/keys)
+  if (process.env.GROQ_API_KEY && process.env.GROQ_API_KEY.startsWith("gsk_")) {
+    const groqRes = await callGroq(prompt, systemPrompt, history);
+    if (groqRes && groqRes.trim().length > 10) return groqRes.trim();
+  }
+
+  // 2. Try Gemini (Free on Google AI Studio: https://aistudio.google.com/app/apikey)
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.startsWith("AIzaSy")) {
+    const geminiRes = await callGeminiGrounded(prompt);
+    if (geminiRes && geminiRes.trim().length > 10) return geminiRes.trim();
+    const chatRes = await callGemini(prompt, history);
+    if (chatRes && chatRes.trim().length > 10) return chatRes.trim();
+  }
+
+  // 3. Try OpenRouter (Free community models: https://openrouter.ai/keys)
+  if (process.env.OPENROUTER_API_KEY && process.env.OPENROUTER_API_KEY.startsWith("sk-or-")) {
+    const orRes = await callOpenRouter(prompt, systemPrompt, history);
+    if (orRes && orRes.trim().length > 10) return orRes.trim();
+  }
+
+  // 4. Try Local Ollama (100% Free Offline: http://localhost:11434)
+  if (process.env.OLLAMA_BASE_URL || process.env.OLLAMA_MODEL) {
+    const ollamaRes = await callOllama(prompt, systemPrompt, history);
+    if (ollamaRes && ollamaRes.trim().length > 10) return ollamaRes.trim();
+  }
+
+  return null;
+}
+
 async function callGemini(prompt, history = []) {
-  if (!process.env.GEMINI_API_KEY) return null;
+  if (!process.env.GEMINI_API_KEY || !process.env.GEMINI_API_KEY.startsWith("AIzaSy")) return null;
 
   for (let i = 0; i < FALLBACK_MODELS.length; i++) {
     const modelName = FALLBACK_MODELS[i];
-    // Up to 2 attempts per model with short backoff before moving to the next model
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const model = getModel(AI_CONFIG.systemPrompt, modelName);
+        if (!model) continue;
         const geminiChat = model.startChat({ history });
         const result = await geminiChat.sendMessage(prompt);
-        const text = result.response.text();
-        return text && text.length > 20 ? text : null;
+        const text = result?.response?.text?.();
+        if (text && text.trim().length > 10) return text.trim();
       } catch (err) {
+        console.warn(`Gemini error (model=${modelName}, attempt=${attempt + 1}):`, err.message || err);
+        if (isAuthError(err)) return null; // Invalid API key: immediately fail over to offline engine
         const overloaded = isOverloadedError(err);
-        console.error(`Gemini error (model=${modelName}, attempt=${attempt + 1}):`, err.message);
-        if (!overloaded) return null; // Non-retryable error (auth, bad request, etc.)
-        if (attempt === 0) await sleep(600); // brief backoff before retrying same model
+        const modelUnavailable = isModelUnavailableError(err);
+        if (modelUnavailable) break; // Try next fallback model immediately
+        if (attempt === 0 && (overloaded || isQuotaErrorMessage(err.message))) {
+          await sleep(500); // brief backoff before retry
+        } else {
+          break; // Move to next model
+        }
       }
     }
-    // Move to next fallback model
   }
-  return null; // All models/attempts exhausted
+  return null; // All models exhausted
 }
 
-// ── Generate a clean conversation title (Claude/ChatGPT-style) ───────────────
-// BUG FIX: previously every new conversation was titled via
-// `message.substring(0, 60)` — the raw first message, untouched. For short
-// greetings ("hey", "hi") this means every single chat in the sidebar shows
-// the identical title with no way to tell them apart. This generates a
-// short, distinct title via a quick LLM call instead, falling back to a
-// clean word-boundary truncation (not mid-word) only if that call fails.
-async function generateTitle(message) {
-  const prompt = `Generate a short, clean title (max 5 words, no quotes, no punctuation at the end) for a conversation that starts with this message:
+function extractGroundedText(interaction) {
+  if (interaction?.output_text) return interaction.output_text;
+  if (interaction?.outputText) return interaction.outputText;
+  if (interaction?.text) return interaction.text;
 
-"${message}"
+  const candidateParts = interaction?.candidates?.[0]?.content?.parts || [];
+  const candidateText = candidateParts
+    .map(part => part?.text)
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+  if (candidateText) return candidateText;
 
-Reply with ONLY the title text, nothing else.`;
-
-  try {
-    const title = await callGemini(prompt, []);
-    if (title) {
-      const cleaned = title.trim().replace(/^["']|["']$/g, "").split("\n")[0];
-      if (cleaned.length > 0 && cleaned.length <= 60) return cleaned;
+  const texts = [];
+  for (const step of interaction?.steps || []) {
+    if (step.type !== "model_output") continue;
+    for (const block of step.content || []) {
+      if (block.type === "text" && block.text) texts.push(block.text);
+      if (block.text && !block.type) texts.push(block.text);
     }
-  } catch (err) {
-    console.error("generateTitle error:", err.message);
+  }
+  return texts.join("\n\n").trim();
+}
+
+function extractGroundedCitations(interaction) {
+  const seen = new Set();
+  const citations = [];
+
+  function addCitation(title, url) {
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    citations.push({ title: title || url, url });
   }
 
-  // Fallback: truncate cleanly at a word boundary instead of mid-word,
-  // and append an ellipsis so distinct long messages don't collapse to
-  // the same truncated prefix.
-  const truncated = message.substring(0, 50);
+  for (const step of interaction?.steps || []) {
+    if (step.type !== "model_output") continue;
+    for (const block of step.content || []) {
+      for (const annotation of block.annotations || []) {
+        if (annotation.type !== "url_citation" || !annotation.url) continue;
+        addCitation(annotation.title, annotation.url);
+      }
+    }
+  }
+
+  const groundingChunks = interaction?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  for (const chunk of groundingChunks) {
+    addCitation(chunk?.web?.title, chunk?.web?.uri);
+  }
+
+  return citations;
+}
+
+function withSources(text, citations) {
+  if (!text || !citations?.length) return text;
+  const sourceList = citations
+    .slice(0, 5)
+    .map((c, i) => `${i + 1}. [${c.title}](${c.url})`)
+    .join("\n");
+  return `${text.trim()}\n\n**Sources**\n${sourceList}`;
+}
+
+async function callGeminiGrounded(prompt) {
+  if (!process.env.GEMINI_API_KEY || typeof fetch !== "function") return null;
+
+  const models = [
+    process.env.GEMINI_MODEL_GROUNDED,
+    process.env.GEMINI_MODEL_CHAT,
+    DEFAULT_CHAT_MODEL,
+    "gemini-1.5-flash",
+    "gemini-2.0-flash",
+    "gemini-1.5-pro",
+  ].filter(Boolean).filter((model, index, list) => list.indexOf(model) === index);
+
+  async function postGemini(url, body, model, label) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": process.env.GEMINI_API_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = json?.error?.message || `HTTP ${res.status}`;
+      console.warn(`Gemini grounded ${label} error (model=${model}):`, msg);
+      return { ok: false, status: res.status, message: msg };
+    }
+
+    return { ok: true, json };
+  }
+
+  for (const model of models) {
+    try {
+      const interaction = await postGemini("https://generativelanguage.googleapis.com/v1beta/interactions", {
+        model,
+        input: prompt,
+        tools: [{ type: "google_search" }],
+      }, model, "interactions");
+
+      if (interaction.ok) {
+        const text = extractGroundedText(interaction.json);
+        if (text && text.length >= 10) return withSources(text, extractGroundedCitations(interaction.json));
+      } else {
+        if (interaction.status === 401 || isAuthError({ message: interaction.message })) return null;
+        if (interaction.status === 429 || isQuotaErrorMessage(interaction.message)) {
+          return null; // fall back to regular chat or offline knowledge
+        }
+      }
+
+      const generated = await postGemini(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        tools: [{ google_search: {} }],
+      }, model, "generateContent");
+
+      if (!generated.ok) {
+        if (generated.status === 401 || isAuthError({ message: generated.message })) return null;
+        if (generated.status === 429 || isQuotaErrorMessage(generated.message)) {
+          return "Gemini Search is connected, but this API key has exceeded its current quota/rate limit. Please check billing or quota in Google AI Studio, then try again.";
+        }
+        if (generated.status === 404 || /no longer available|not_found|not found/i.test(generated.message)) continue;
+        return null;
+      }
+
+      const text = extractGroundedText(generated.json);
+      if (text && text.length >= 10) {
+        return withSources(text, extractGroundedCitations(generated.json));
+      }
+
+      console.error(`Gemini grounded returned no usable text (model=${model})`);
+    } catch (err) {
+      console.error(`Gemini grounded request error (model=${model}):`, err.message);
+      return null;
+    }
+  }
+
+  return null;
+}
+
+// ── Generate a clean conversation title (Zero-API for short messages) ───────
+async function generateTitle(message) {
+  const clean = String(message || "").trim();
+  if (clean.length <= 40) {
+    return clean.replace(/[!?.,]+$/, "");
+  }
+
+  // If long message and API key is present, generate a smart title
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const prompt = `Generate a short, clean title (max 5 words, no quotes, no trailing punctuation) for: "${clean.substring(0, 150)}"`;
+      const title = await callGemini(prompt, []);
+      if (title) {
+        const cleaned = title.trim().replace(/^["']|["']$/g, "").split("\n")[0];
+        if (cleaned.length > 0 && cleaned.length <= 50) return cleaned;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // Fallback: clean word boundary truncation
+  const truncated = clean.substring(0, 45);
   const lastSpace = truncated.lastIndexOf(" ");
-  const base = lastSpace > 20 ? truncated.substring(0, lastSpace) : truncated;
-  return base + (message.length > 50 ? "…" : "");
+  const base = lastSpace > 15 ? truncated.substring(0, lastSpace) : truncated;
+  return base + "…";
 }
 
 // ── Main chat function ────────────────────────────────────────────────────────
@@ -420,88 +953,142 @@ async function chat(userId, message, conversationId = null) {
       conversationId = conversation.id;
     }
 
-    // 2. Store user message
-    await AIMessage.create({ conversationId, role: "user", content: message });
+    // 2. Store user message. Count rough tokens for conversation-size limits.
+    await AIMessage.create({
+      conversationId,
+      role: "user",
+      content: message,
+      totalTokens: estimateTokens(message),
+    });
 
-    // 3. Load recent history for context
+    // 3. Load history and build a bounded memory window for Gemini.
     const allMessages = await AIMessage.findByConversationId(conversationId);
-    const recentHistory = allMessages.slice(-10);
-    const geminiHistory = recentHistory.slice(0, -1).map(m => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
-    }));
+    const totalConversationTokens = conversationTokenEstimate(allMessages);
 
+    if (totalConversationTokens >= AI_CONFIG.maxConversationTokens) {
+      const responseText = buildConversationLimitMessage(totalConversationTokens, allMessages.length);
+      const assistantMsg = await AIMessage.create({
+        conversationId,
+        role: "assistant",
+        content: responseText,
+        totalTokens: estimateTokens(responseText),
+      });
+
+      return {
+        conversationId,
+        messageId: assistantMsg.id,
+        content: responseText,
+        contextLimitReached: true,
+      };
+    }
+
+    const memory = buildGeminiHistory(allMessages);
+    const geminiHistory = memory.history;
+
+    const normalizedKey = queryCache.normalizeKey(message);
     let responseText = "";
 
-    // 4. Route: greeting → general knowledge → personal data
-    if (isGreeting(message)) {
-      // ── Greeting / small talk: warm reply, no tools ──────────────────────
-      const prompt = `The user sent: "${message}"
+    // ── Tier 1: Check In-Memory LRU Cache (0 API calls, <1ms) ────────────────
+    if (!isPersonalDataQuery(message)) {
+      const cached = queryCache.get(normalizedKey);
+      if (cached) responseText = cached;
+    }
 
-This is a greeting or casual message — NOT a financial question.
-Respond warmly and briefly (1-2 sentences max).
-Then offer one natural suggestion of what you can help with, e.g. checking their financial health, budget, investments, or goals.
-Do NOT show any financial data or scores.`;
+    // ── Tier 2: Instant Casual / Small Talk / Capabilities (0 API calls, <1ms)
+    if (!responseText) {
+      const casual = getInstantCasualResponse(message);
+      if (casual) responseText = casual;
+    }
 
-      responseText = await callGemini(prompt, geminiHistory);
+    // ── Tier 3: High-Precision Financial Math & EMI/SIP Solver (0 API calls) ─
+    if (!responseText) {
+      const mathAnswer = solveFinancialMath(message);
+      if (mathAnswer) {
+        responseText = mathAnswer;
+        queryCache.set(normalizedKey, mathAnswer);
+      }
+    }
 
-      if (!responseText) {
-        const greetings = [
-          "Hey! 👋 I'm SmartFinance AI, your personal wealth advisor. Ask me about your budget, investments, loans, or financial health score!",
-          "Hello! 😊 Ready to help with your finances — want to check your financial health score, review your budget, or plan your investments?",
-          "Hi there! 👋 I can help you with your budget, investments, goals, tax planning, and more. What would you like to explore?",
+    // ── Tier 3.5: Real-Time Live Stock & Market Quotes (<300ms, Live Feed) ──
+    if (!responseText && !isPersonalDataQuery(message)) {
+      const liveQuote = await getLiveStockQuote(message);
+      if (liveQuote?.markdown) {
+        responseText = liveQuote.markdown;
+      }
+    }
+
+    // ── Tier 4: Curated Top Financial FAQs & Rules (0 API calls) ────────────
+    if (!responseText && !isPersonalDataQuery(message)) {
+      const faqAnswer = getFrequentFinanceResponse(message);
+      if (faqAnswer) {
+        responseText = faqAnswer;
+        queryCache.set(normalizedKey, faqAnswer);
+      }
+    }
+
+    // ── Tier 5: Personal Financial Data or Deep Universal Reasoning ──────────
+    if (!responseText) {
+      if (!isPersonalDataQuery(message) || isGeneralKnowledge(message)) {
+        // Universal / open-ended queries
+        // Check for real-time web & market context grounding
+        const liveContext = await getLiveGroundingContext(message);
+
+        const generalPrompt = `USER QUESTION: "${message}"
+
+${liveContext ? `### REAL-TIME WEB & LIVE MARKET CONTEXT (Live as of today):\n${liveContext}\n\n` : ""}INSTRUCTIONS:
+- Answer the user's question with clarity, expertise, and precision.
+- If real-time web/market context is provided above, incorporate those live facts seamlessly to provide an accurate, up-to-date response.
+- If this is a coding or technical problem, provide clean, idiomatic code examples with concise explanations.
+- If this is a math, science, or logic problem, show the clear step-by-step solution.
+- If this is an Indian finance, taxation, or market concept, give practical, actionable insights.
+- For open knowledge or general advice, use clean markdown structure (headers, bullet points, bold highlights) and match the user's requested depth.`;
+
+        responseText = await callUnifiedLLM(generalPrompt, AI_CONFIG.systemPrompt, geminiHistory);
+        if (!responseText) responseText = getGeneralKnowledgeFallback(message);
+
+        // Cache general responses so identical queries never hit API again
+        if (responseText) {
+          queryCache.set(normalizedKey, responseText);
+        }
+
+      } else {
+        // ── Personal data: run tools and answer based on real data ────────────
+        const toolNames = classifyIntents(message);
+
+        const COMPREHENSIVE_TOOLS = [
+          "getFinancialProfile",
+          "calculateHealthScore",
+          "getInvestmentSummary",
+          "getLoanSummary",
+          "goalAnalysis",
+          "budgetAnalysis",
+          "riskAnalysis",
         ];
-        responseText = greetings[Math.floor(Math.random() * greetings.length)];
-      }
+        const effectiveToolNames = toolNames || COMPREHENSIVE_TOOLS;
+        const isComprehensive = !toolNames;
 
-    } else if (isGeneralKnowledge(message)) {
-      // ── General knowledge: answer directly with Gemini, no tools ────────────
-      const prompt = `USER QUESTION: "${message}"
+        const toolResults = await Promise.all(
+          effectiveToolNames.map(async (toolName) => {
+            const params = extractParams(message, toolName);
+            const result = await executeTool(toolName, params, userId);
+            return { toolName, params, result };
+          })
+        );
 
-This is a general financial knowledge question — not about the user's personal account data.
-Answer as an expert Indian financial advisor. Be specific, practical, and relevant to Indian markets.
-Use ₹, Indian market context (NSE/BSE, Indian MFs, Indian tax laws).
-Format with markdown. Keep it under 250 words.`;
+        const dataContext = toolResults
+          .map(({ toolName, result }) => `### ${toolName}:\n${JSON.stringify(result, null, 2)}`)
+          .join("\n\n");
 
-      responseText = await callGemini(prompt, geminiHistory);
+        const continuityInstruction = `CONVERSATION CONTEXT:
+- This is message ${allMessages.length} in the current chat.
+- Recent conversation turns and a compact older summary have been provided through chat history.
+- Do not repeat the same answer structure from previous turns unless the user asks for a recap.
+- If the latest question depends on earlier context, use the history. If not, answer the latest question directly.`;
 
-      if (!responseText) {
-        responseText = `I'd be happy to help with that! For the most current market data and stock recommendations, check:\n\n• **NSE India** — nseindia.com\n• **BSE India** — bseindia.com\n• **Screener.in** — for stock analysis\n• **Value Research** — for mutual fund ratings\n\nFor personalised advice based on *your* financial situation, ask me about your portfolio, budget, goals, or health score!`;
-      }
+        const prompt = isComprehensive
+          ? `USER QUESTION: "${message}"
 
-    } else {
-      // ── Personal data: run tools and answer based on real data ────────────
-      const toolNames = classifyIntents(message);
-
-      // If no specific intent matched, fetch a comprehensive financial snapshot
-      // so Gemini can REASON over the full picture for growth/planning/rare questions
-      // — instead of just clarifying.
-      const COMPREHENSIVE_TOOLS = [
-        "getFinancialProfile",
-        "calculateHealthScore",
-        "getInvestmentSummary",
-        "getLoanSummary",
-        "goalAnalysis",
-        "budgetAnalysis",
-        "riskAnalysis",
-      ];
-      const effectiveToolNames = toolNames || COMPREHENSIVE_TOOLS;
-      const isComprehensive = !toolNames;
-
-      const toolResults = await Promise.all(
-        effectiveToolNames.map(async (toolName) => {
-          const params = extractParams(message, toolName);
-          const result = await executeTool(toolName, params, userId);
-          return { toolName, params, result };
-        })
-      );
-
-      const dataContext = toolResults
-        .map(({ toolName, result }) => `### ${toolName}:\n${JSON.stringify(result, null, 2)}`)
-        .join("\n\n");
-
-      const prompt = isComprehensive
-        ? `USER QUESTION: "${message}"
+${continuityInstruction}
 
 COMPLETE FINANCIAL PICTURE (net worth, budget, investments, loans, goals, risk profile, health score):
 ${dataContext}
@@ -512,9 +1099,12 @@ INSTRUCTIONS:
 - Reason about the user's situation: identify what's relevant to their question, connect the dots between different numbers, and give a thoughtful, personalised answer — not a generic template.
 - Reference ACTUAL figures from the data (e.g. "with a savings rate of 12% and ₹X in equity exposure...").
 - If the relevant data is empty/zero, say so clearly and guide them to add it in Settings — but still give whatever reasoning/guidance you can from what IS available.
-- Use markdown with headers/tables where it aids clarity, but prioritise clear reasoning and specific, actionable next steps.
+- Do NOT use markdown tables. Use short labeled lines for numbers, for example: **Portfolio value:** ₹2.00 L.
+- Use a short heading only when helpful, then concise prose or bullets.
 - Be precise and concise — aim for under 300 words, more only if the question genuinely needs depth.`
-        : `USER QUESTION: "${message}"
+          : `USER QUESTION: "${message}"
+
+${continuityInstruction}
 
 USER'S REAL FINANCIAL DATA:
 ${dataContext}
@@ -523,51 +1113,72 @@ INSTRUCTIONS:
 - Answer the user's SPECIFIC question using ONLY the numbers from the data above
 - Do NOT give generic advice — reference actual values (e.g. "Your savings rate is 18%", not "you should save more")
 - If values are 0 or missing, say exactly that and guide them to add the data in Settings
-- Use markdown formatting with headers and tables where helpful
+- Do NOT use markdown tables. Use short labeled lines for numbers, for example: **Portfolio value:** ₹2.00 L.
+- Use a short heading only when helpful, then concise prose or bullets.
 - Be concise — under 250 words unless the question needs more`;
 
-      responseText = await callGemini(prompt, geminiHistory);
+        responseText = await callUnifiedLLM(prompt, AI_CONFIG.systemPrompt, geminiHistory);
 
-      // Fallback: structured formatted response
-      if (!responseText) {
-        if (toolResults.length === 1) {
-          responseText = buildFallbackResponse(toolResults[0].toolName, toolResults[0].result);
-        } else {
-          const parts = toolResults
-            .map(({ toolName, result }) => buildFallbackResponse(toolName, result))
-            .filter(r => r && !r.startsWith("⚠️"));
-          responseText = parts.join("\n\n---\n\n") || buildFallbackResponse(toolResults[0].toolName, toolResults[0].result);
+        // Fallback: structured formatted response
+        if (!responseText) {
+          if (toolResults.length === 1) {
+            responseText = buildFallbackResponse(toolResults[0].toolName, toolResults[0].result);
+          } else {
+            const parts = toolResults
+              .map(({ toolName, result }) => buildFallbackResponse(toolName, result))
+              .filter(r => r && !r.startsWith("⚠️"));
+            responseText = parts.join("\n\n---\n\n") || buildFallbackResponse(toolResults[0].toolName, toolResults[0].result);
+          }
         }
+
+        responseText = appendContextWarning(responseText, totalConversationTokens);
+
+        const assistantMsg = await AIMessage.create({
+          conversationId,
+          role: "assistant",
+          content: responseText,
+          toolCalls: toolResults.map(t => ({ name: t.toolName, params: t.params, result: t.result })),
+          totalTokens: estimateTokens(responseText),
+        });
+
+        const suggestions = generateSuggestedPrompts(message, responseText);
+
+        return {
+          conversationId,
+          messageId: assistantMsg.id,
+          content: responseText,
+          toolCalls: toolResults.map(t => ({ name: t.toolName })),
+          suggestions,
+          memory: {
+            usedHistoryMessages: memory.selectedCount,
+            omittedHistoryMessages: memory.omittedCount,
+            contextLimitReached: false,
+          },
+        };
       }
-
-      const assistantMsg = await AIMessage.create({
-        conversationId,
-        role: "assistant",
-        content: responseText,
-        toolCalls: toolResults.map(t => ({ name: t.toolName, params: t.params, result: t.result })),
-        totalTokens: Math.floor(responseText.length / 4),
-      });
-
-      return {
-        conversationId,
-        messageId: assistantMsg.id,
-        content: responseText,
-        toolCalls: toolResults.map(t => ({ name: t.toolName })),
-      };
     }
 
-    // For greeting / general knowledge — no tool calls
+    // For cached / casual / math / faq / general knowledge (no tool calls)
+    responseText = appendContextWarning(responseText, totalConversationTokens);
+    const suggestions = generateSuggestedPrompts(message, responseText);
+
     const assistantMsg = await AIMessage.create({
       conversationId,
       role: "assistant",
       content: responseText,
-      totalTokens: Math.floor(responseText.length / 4),
+      totalTokens: estimateTokens(responseText),
     });
 
     return {
       conversationId,
       messageId: assistantMsg.id,
       content: responseText,
+      suggestions,
+      memory: {
+        usedHistoryMessages: memory.selectedCount,
+        omittedHistoryMessages: memory.omittedCount,
+        contextLimitReached: false,
+      },
     };
 
   } catch (err) {
