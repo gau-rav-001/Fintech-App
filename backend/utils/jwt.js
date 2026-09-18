@@ -3,10 +3,11 @@ const jwt    = require("jsonwebtoken");
 const crypto = require("crypto");
 
 const secret  = () => process.env.JWT_SECRET;
-const expires = (role) =>
-  role === "admin"
-    ? process.env.ADMIN_JWT_EXPIRES_IN || "4h"
-    : process.env.JWT_EXPIRES_IN       || "1d";
+const expires = (role) => {
+  if (role === "admin")   return process.env.ADMIN_JWT_EXPIRES_IN   || "4h";
+  if (role === "advisor") return process.env.ADVISOR_JWT_EXPIRES_IN || "8h";
+  return process.env.JWT_EXPIRES_IN || "1d";
+};
 
 // ── Blacklist adapter interface ───────────────────────────────────────────────
 // In production swap this for a Redis adapter:
@@ -82,4 +83,15 @@ function buildPayload(user) {
   return { id: user.id, role: user.role || "user", email: user.email };
 }
 
-module.exports = { signToken, verifyToken, revokeToken, buildPayload, setBlacklistAdapter };
+function buildAdvisorPayload(advisor) {
+  return { id: advisor.id, role: "advisor" };
+}
+
+module.exports = {
+  signToken,
+  verifyToken,
+  revokeToken,
+  buildPayload,
+  buildAdvisorPayload,
+  setBlacklistAdapter,
+};

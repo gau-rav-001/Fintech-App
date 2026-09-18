@@ -1,8 +1,16 @@
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, "../.env") });
 const { Pool } = require("pg");
 
+const hasDbCredentials =
+  process.env.DB_HOST ||
+  process.env.DB_PORT ||
+  process.env.DB_NAME ||
+  process.env.DB_USER ||
+  process.env.DB_PASSWORD;
+
 // ── Pool configuration ────────────────────────────────────────────────────────
-const poolConfig = process.env.DATABASE_URL
+const poolConfig = !hasDbCredentials && process.env.DATABASE_URL
   ? {
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : false,
@@ -12,7 +20,7 @@ const poolConfig = process.env.DATABASE_URL
     }
   : {
       host:     process.env.DB_HOST     || "localhost",
-      port:     parseInt(process.env.DB_PORT || "5432"),
+      port:     parseInt(process.env.DB_PORT || "5432", 10),
       database: process.env.DB_NAME     || "smartfinance",
       user:     process.env.DB_USER     || "postgres",
       password: process.env.DB_PASSWORD || "",
@@ -22,6 +30,16 @@ const poolConfig = process.env.DATABASE_URL
       connectionTimeoutMillis: 5000,
     };
 
+console.log("=== Pool Config ===");
+console.log({
+  source: !hasDbCredentials && process.env.DATABASE_URL ? "DATABASE_URL" : "DB_*",
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD ? "***SET***" : "NOT SET",
+  ssl: process.env.DB_SSL,
+});
 const pool = new Pool(poolConfig);
 
 // ── Test connection ───────────────────────────────────────────────────────────

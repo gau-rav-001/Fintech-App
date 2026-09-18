@@ -1,6 +1,12 @@
 // backend/server.js
 require("dotenv").config();
 
+console.log({
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ? "Loaded" : "Missing",
+  GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL,
+});
+
 const express      = require("express");
 const cors         = require("cors");
 const helmet       = require("helmet");
@@ -46,11 +52,14 @@ if (process.env.REDIS_URL) {
   console.warn("⚠️  REDIS_URL not set — using in-memory OTP/JWT store (single-instance / dev only).");
 }
 
-const authRoutes    = require("./routes/authRoutes");
-const userRoutes    = require("./routes/userRoutes");
-const adminRoutes   = require("./routes/adminRoutes");
-const contentRoutes = require("./routes/contentRoutes");
-const aiRoutes      = require("./routes/aiRoutes");
+const authRoutes        = require("./routes/authRoutes");
+const advisorAuthRoutes = require("./routes/advisorAuthRoutes");
+const advisorRoutes     = require("./routes/advisorRoutes");
+const userRoutes        = require("./routes/userRoutes");
+const adminRoutes       = require("./routes/adminRoutes");
+const contentRoutes     = require("./routes/contentRoutes");
+const aiRoutes          = require("./routes/aiRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 const { errorHandler, notFound } = require("./middleware/errorHandler");
 
 const app    = express();
@@ -109,11 +118,14 @@ app.get("/health", (req, res) => {
 });
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-app.use("/api/auth",    authLimiter, authRoutes);
-app.use("/api/user",    userRoutes);
-app.use("/api/admin",   adminRoutes);
-app.use("/api/content", contentRoutes);
-app.use("/api/ai",      aiRoutes);
+app.use("/api/auth",         authLimiter, authRoutes);
+app.use("/api/advisor/auth", authLimiter, advisorAuthRoutes);
+app.use("/api/advisor",      advisorRoutes);
+app.use("/api/user",         userRoutes);
+app.use("/api/admin",        adminRoutes);
+app.use("/api/content",      contentRoutes);
+app.use("/api/ai",           aiRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // ── Error handling ────────────────────────────────────────────────────────────
 app.use(notFound);

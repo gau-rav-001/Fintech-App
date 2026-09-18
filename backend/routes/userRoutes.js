@@ -1,8 +1,8 @@
 // backend/routes/userRoutes.js
 const router = require("express").Router();
-const { body } = require("express-validator");
+const { body, param } = require("express-validator");
 const validate = require("../middleware/validate");
-const { authenticate, requireProfileComplete } = require("../middleware/auth");
+const { authenticate, requireProfileComplete, requireUser } = require("../middleware/auth");
 const {
   onboarding, getProfile, updateProfile,
   changePassword, getDashboardSummary,
@@ -184,5 +184,49 @@ router.post("/change-password", [
 
 // ── Dashboard — requires completed profile ────────────────────────────────────
 router.get("/dashboard/summary", requireProfileComplete, getDashboardSummary);
+
+// ── Advisor Relationship Management (Phases 6.2, 6.4, 6.5, 7.1) ─────────────
+const {
+  claimInvitation,
+  getPendingRequests,
+  getActiveAdvisor,
+  acceptConnectionRequest,
+  rejectConnectionRequest,
+  terminateActiveAdvisor,
+} = require("../controllers/userAdvisorController");
+
+const claimInviteRules = [
+  body("token")
+    .trim()
+    .notEmpty()
+    .withMessage("Invitation token is required.")
+    .isLength({ max: 255 })
+    .withMessage("Invalid token format."),
+];
+
+const rejectRequestRules = [
+  body("rejectionReason")
+    .optional()
+    .isString()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage("Rejection reason cannot exceed 500 characters."),
+];
+
+const terminateRules = [
+  body("reason")
+    .optional()
+    .isString()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage("Termination reason cannot exceed 500 characters."),
+];
+
+router.post("/advisor/claim-invite", requireUser, claimInviteRules, validate, claimInvitation);
+router.get("/advisor/requests", requireUser, getPendingRequests);
+router.get("/advisor/active", requireUser, getActiveAdvisor);
+router.post("/advisor/requests/:requestId/accept", requireUser, acceptConnectionRequest);
+router.post("/advisor/requests/:requestId/reject", requireUser, rejectRequestRules, validate, rejectConnectionRequest);
+router.post("/advisor/terminate", requireUser, terminateRules, validate, terminateActiveAdvisor);
 
 module.exports = router;

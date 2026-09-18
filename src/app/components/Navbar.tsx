@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useLanguage } from "../LanguageContext";
 import { useAuth } from "../auth/AuthContext";
 import { getUserProfile } from "../data/userProfile";
+import { NotificationBell } from "./NotificationBell";
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -12,6 +13,9 @@ export function Navbar() {
   const [languageOpen, setLanguageOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== "undefined" ? window.innerWidth < 768 : false
+  );
 
   const { language, setLanguage, t, languageOptions } =
     useLanguage();
@@ -95,6 +99,14 @@ export function Navbar() {
 
     return () =>
       window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    function handleResize() {
+      setIsMobile(window.innerWidth < 768);
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   return (
@@ -272,8 +284,10 @@ export function Navbar() {
 
               {isAuthenticated ? (
                 /* ── Logged-in: avatar dropdown ── */
-                <div className="relative" ref={userMenuRef}>
-                  <button
+                <div className="flex items-center gap-3">
+                  {!isMobile && <NotificationBell actorType="user" />}
+                  <div className="relative" ref={userMenuRef}>
+                    <button
                     onClick={() => setUserMenuOpen(v => !v)}
                     className="flex items-center gap-2 px-2 py-1.5 rounded-full hover:bg-white/10 transition-all"
                   >
@@ -316,6 +330,7 @@ export function Navbar() {
                       </motion.div>
                     )}
                   </AnimatePresence>
+                  </div>
                 </div>
               ) : (
                 /* ── Guest: login + signup ── */
@@ -365,17 +380,22 @@ export function Navbar() {
               </span>
             </Link>
 
-            <button
-              className="p-2 text-white"
-              onClick={() => setMobileMenuOpen((prev) => !prev)}
-              type="button"
-            >
-              {mobileMenuOpen ? (
-                <X className="w-6 h-6" />
-              ) : (
-                <Menu className="w-6 h-6" />
+            <div className="flex items-center gap-2">
+              {isAuthenticated && isMobile && (
+                <NotificationBell actorType="user" />
               )}
-            </button>
+              <button
+                className="p-2 text-white"
+                onClick={() => setMobileMenuOpen((prev) => !prev)}
+                type="button"
+              >
+                {mobileMenuOpen ? (
+                  <X className="w-6 h-6" />
+                ) : (
+                  <Menu className="w-6 h-6" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
 

@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import {
   User, Mail, Phone, Calendar, Briefcase, MapPin,
@@ -7,6 +7,7 @@ import {
   LogOut, Camera, Save, AlertCircle, CheckCircle,
   ChevronDown, ChevronRight, Plus, Trash2, Lock, Eye, EyeOff,
   ArrowLeft, Settings as SettingsIcon, PieChart,
+  Building2, CheckCircle2, XCircle, Check, AlertTriangle, X, RefreshCw, UserCheck,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import {
@@ -17,6 +18,20 @@ import {
 import { syncProfileToFinancialData } from "../data/syncProfile";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
+import {
+  userAdvisorAPI,
+  type ActiveAdvisorRelationship,
+  type UserAdvisorRequest,
+} from "../services/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "../components/ui/dialog";
+import { Skeleton } from "../components/ui/skeleton";
 
 // ── Shared input styles ───────────────────────────────────────────────────────
 
@@ -31,18 +46,19 @@ function fmt(n: number) {
   return `₹${n.toLocaleString("en-IN")}`;
 }
 
-type TabId = "account" | "profile" | "income" | "expenses" | "goals" | "investments" | "risk" | "loans" | "security";
+type TabId = "account" | "advisor" | "profile" | "income" | "expenses" | "goals" | "investments" | "risk" | "loans" | "security";
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
-  { id: "account",     label: "Account",      icon: <User       className="w-4 h-4" /> },
-  { id: "profile",     label: "Profile",      icon: <MapPin     className="w-4 h-4" /> },
-  { id: "income",      label: "Income",       icon: <DollarSign className="w-4 h-4" /> },
-  { id: "expenses",    label: "Expenses",     icon: <PieChart   className="w-4 h-4" /> },
-  { id: "goals",       label: "Goals",        icon: <Target     className="w-4 h-4" /> },
-  { id: "investments", label: "Investments",  icon: <TrendingUp className="w-4 h-4" /> },
-  { id: "risk",        label: "Risk Profile", icon: <ShieldCheck className="w-4 h-4" /> },
-  { id: "loans",       label: "Loans",        icon: <CreditCard className="w-4 h-4" /> },
-  { id: "security",    label: "Security",     icon: <Lock       className="w-4 h-4" /> },
+  { id: "account",     label: "Account",           icon: <User        className="w-4 h-4" /> },
+  { id: "advisor",     label: "Financial Advisor", icon: <Briefcase   className="w-4 h-4" /> },
+  { id: "profile",     label: "Profile",           icon: <MapPin      className="w-4 h-4" /> },
+  { id: "income",      label: "Income",            icon: <DollarSign  className="w-4 h-4" /> },
+  { id: "expenses",    label: "Expenses",          icon: <PieChart    className="w-4 h-4" /> },
+  { id: "goals",       label: "Goals",             icon: <Target      className="w-4 h-4" /> },
+  { id: "investments", label: "Investments",       icon: <TrendingUp  className="w-4 h-4" /> },
+  { id: "risk",        label: "Risk Profile",      icon: <ShieldCheck className="w-4 h-4" /> },
+  { id: "loans",       label: "Loans",             icon: <CreditCard  className="w-4 h-4" /> },
+  { id: "security",    label: "Security",          icon: <Lock        className="w-4 h-4" /> },
 ];
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -50,8 +66,20 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
 export function Settings() {
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const [activeTab, setActiveTab] = useState<TabId>("account");
+  const requestedTab = searchParams.get("tab") as TabId;
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    return TABS.some(t => t.id === requestedTab) ? requestedTab : "account";
+  });
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab") as TabId;
+    if (tabParam && TABS.some(t => t.id === tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -172,6 +200,10 @@ export function Settings() {
           </button>
         </div>
       </Section>
+    ),
+
+    advisor: (
+      <AdvisorSettingsSection showToast={showToast} />
     ),
 
     profile: (
@@ -737,5 +769,425 @@ function SecuritySection({ showToast, userId }: { showToast: (m: string, ok?: bo
         <Save className="w-4 h-4" /> Update Password
       </button>
     </div>
+  );
+}
+
+// ── Financial Advisor Section (Phase 7.1 Step 7) ──────────────────────────────
+
+function AdvisorSettingsSection({ showToast }: { showToast: (m: string, ok?: boolean) => void }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeRel, setActiveRel] = useState<ActiveAdvisorRelationship | null>(null);
+  const [pendingRequests, setPendingRequests] = useState<UserAdvisorRequest[]>([]);
+
+  // Mutation states
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [disconnectModalOpen, setDisconnectModalOpen] = useState(false);
+  const [disconnectReason, setDisconnectReason] = useState("");
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  // Authoritative load function with race-condition prevention
+  const activeReqRef = useRef(0);
+  const loadAdvisorState = useCallback(async () => {
+    const reqId = ++activeReqRef.current;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const [activeRes, requestsRes] = await Promise.all([
+        userAdvisorAPI.getActiveAdvisor(),
+        userAdvisorAPI.getRequests(),
+      ]);
+
+      if (reqId !== activeReqRef.current) return;
+
+      if (activeRes.data?.hasActiveAdvisor && activeRes.data.relationship) {
+        setActiveRel(activeRes.data.relationship);
+      } else {
+        setActiveRel(null);
+      }
+
+      setPendingRequests(requestsRes.data?.requests || []);
+    } catch (err: any) {
+      if (reqId !== activeReqRef.current) return;
+      setError(err.message || "Failed to load advisor relationship state.");
+    } finally {
+      if (reqId === activeReqRef.current) {
+        setLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAdvisorState();
+  }, [loadAdvisorState]);
+
+  async function handleAccept(requestId: string) {
+    setAcceptingId(requestId);
+    try {
+      await userAdvisorAPI.acceptRequest(requestId);
+      showToast("Financial advisor connection accepted!");
+      await loadAdvisorState();
+    } catch (err: any) {
+      const code = err.data?.errors?.code || err.data?.code;
+      if (code === "USER_ALREADY_HAS_ADVISOR") {
+        showToast("You already have an active financial advisor.", false);
+      } else if (code === "REQUEST_NOT_PENDING") {
+        showToast("This connection request is no longer pending.", false);
+      } else if (code === "ADVISOR_NOT_ELIGIBLE") {
+        showToast("This advisor is no longer eligible or active.", false);
+      } else {
+        showToast(err.message || "Failed to accept advisor request.", false);
+      }
+      await loadAdvisorState();
+    } finally {
+      setAcceptingId(null);
+    }
+  }
+
+  async function handleReject(requestId: string) {
+    setRejectingId(requestId);
+    try {
+      await userAdvisorAPI.rejectRequest(requestId);
+      showToast("Connection request declined.");
+      await loadAdvisorState();
+    } catch (err: any) {
+      showToast(err.message || "Failed to decline advisor request.", false);
+      await loadAdvisorState();
+    } finally {
+      setRejectingId(null);
+    }
+  }
+
+  async function handleConfirmDisconnect() {
+    setDisconnecting(true);
+    try {
+      await userAdvisorAPI.terminateAdvisor(disconnectReason.trim() || undefined);
+      showToast("Financial advisor relationship disconnected.");
+      setDisconnectModalOpen(false);
+      setDisconnectReason("");
+      setActiveRel(null);
+      await loadAdvisorState();
+    } catch (err: any) {
+      const code = err.data?.errors?.code || err.data?.code;
+      if (code === "NO_ACTIVE_ADVISOR") {
+        showToast("No active advisor relationship found.", false);
+        setActiveRel(null);
+        setDisconnectModalOpen(false);
+      } else {
+        showToast(err.message || "Failed to disconnect advisor.", false);
+      }
+      await loadAdvisorState();
+    } finally {
+      setDisconnecting(false);
+    }
+  }
+
+  return (
+    <Section title="Financial Advisor Management" icon={<Briefcase className="w-5 h-5" />}>
+      {/* Loading Skeleton */}
+      {loading ? (
+        <div className="space-y-4">
+          <Skeleton className="h-32 w-full rounded-2xl" />
+          <Skeleton className="h-24 w-full rounded-2xl" />
+        </div>
+      ) : error ? (
+        <div className="p-5 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-between text-xs text-red-800">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={loadAdvisorState}
+            className="px-3 py-1.5 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Active Advisor Section */}
+          {activeRel ? (
+            <div className="bg-emerald-50/50 border border-emerald-200/90 rounded-3xl p-6 sm:p-7 shadow-xs space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-emerald-200/60">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 rounded-2xl bg-[#1A5F3D] text-white font-bold text-xl flex items-center justify-center shadow-md shrink-0">
+                    {activeRel.advisor.fullName.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-lg font-bold text-gray-900">
+                        {activeRel.advisor.fullName}
+                      </h3>
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-[#1A5F3D] text-xs font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Active Advisor
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-600 mt-0.5 flex items-center gap-1">
+                      <Building2 className="w-3.5 h-3.5 text-gray-400" />
+                      {activeRel.advisor.firmName}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setDisconnectModalOpen(true)}
+                  className="px-4 py-2 border border-red-200 bg-white hover:bg-red-50 text-red-600 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 self-start sm:self-center shadow-xs cursor-pointer"
+                >
+                  <XCircle className="w-4 h-4" />
+                  Disconnect Advisor
+                </button>
+              </div>
+
+              {/* Advisor Details Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                {activeRel.advisor.licenseNumber && (
+                  <div className="p-3.5 rounded-xl bg-white border border-emerald-200/60 space-y-0.5">
+                    <span className="text-gray-400 block text-[11px]">SEBI / Registration #</span>
+                    <span className="font-semibold text-gray-800 font-mono">
+                      {activeRel.advisor.licenseNumber}
+                    </span>
+                  </div>
+                )}
+
+                {activeRel.advisor.email && (
+                  <div className="p-3.5 rounded-xl bg-white border border-emerald-200/60 space-y-0.5">
+                    <span className="text-gray-400 block text-[11px]">Advisor Email</span>
+                    <span className="font-semibold text-gray-800 font-mono">
+                      {activeRel.advisor.email}
+                    </span>
+                  </div>
+                )}
+
+                <div className="p-3.5 rounded-xl bg-white border border-emerald-200/60 space-y-0.5">
+                  <span className="text-gray-400 block text-[11px]">Connected Since</span>
+                  <span className="font-semibold text-gray-800">
+                    {new Date(activeRel.connectedSince).toLocaleDateString(undefined, {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </span>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-white border border-emerald-200/60 space-y-0.5">
+                  <span className="text-gray-400 block text-[11px]">Relationship Status</span>
+                  <span className="font-semibold text-emerald-700 capitalize">
+                    {activeRel.status} (Authorized)
+                  </span>
+                </div>
+              </div>
+
+              {/* Specializations */}
+              {activeRel.advisor.specializations.length > 0 && (
+                <div className="space-y-1.5 pt-1">
+                  <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                    Advisor Specializations
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {activeRel.advisor.specializations.map((spec) => (
+                      <span
+                        key={spec}
+                        className="px-2.5 py-1 rounded-lg bg-white border border-emerald-200 text-[#1A5F3D] text-xs font-medium"
+                      >
+                        {spec}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-500 bg-white/70 p-3 rounded-xl border border-emerald-200/50 leading-relaxed">
+                Your advisor has authorized read-only visibility into your SmartFinance portfolio to help optimize
+                your investments and track your wealth goals. You can disconnect this relationship at any time.
+              </p>
+            </div>
+          ) : (
+            /* No Active Advisor View */
+            <div className="bg-gray-50/70 border border-gray-200 rounded-3xl p-6 sm:p-8 text-center space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-[#1A5F3D] flex items-center justify-center mx-auto shadow-inner">
+                <Briefcase className="w-7 h-7" />
+              </div>
+              <div className="space-y-1 max-w-md mx-auto">
+                <h3 className="text-base font-bold text-gray-900">
+                  Connect with a Financial Advisor
+                </h3>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Collaborate with a certified wealth advisor to get tailored advice on your investments,
+                  loans, tax efficiency, and long-term financial goals.
+                </p>
+              </div>
+
+              <div className="max-w-md mx-auto p-4 rounded-2xl bg-white border border-gray-200/80 text-left text-xs text-gray-600 space-y-1">
+                <div className="font-semibold text-gray-800 flex items-center gap-1.5">
+                  <Mail className="w-4 h-4 text-[#1A5F3D]" />
+                  Have an Advisor Invitation Link?
+                </div>
+                <p className="text-gray-500 text-[11px] leading-relaxed">
+                  If an advisor issued you an invitation, open the secure connection link provided in your invitation email to link your account.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Pending Connection Requests Section */}
+          {pendingRequests.length > 0 && (
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-[#1A5F3D]" />
+                  Pending Connection Requests
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-[#1A5F3D] text-xs font-semibold">
+                    {pendingRequests.length}
+                  </span>
+                </h3>
+              </div>
+
+              <div className="space-y-3">
+                {pendingRequests.map((req) => {
+                  const isAccepting = acceptingId === req.requestId;
+                  const isRejecting = rejectingId === req.requestId;
+                  const isBusy = isAccepting || isRejecting;
+
+                  return (
+                    <div
+                      key={req.requestId}
+                      className="bg-white border border-gray-200 rounded-2xl p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      <div className="space-y-2 min-w-0 flex-1">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-emerald-100 text-[#1A5F3D] font-bold flex items-center justify-center text-sm shrink-0">
+                            {req.advisor.fullName.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-bold text-gray-900 truncate">
+                              {req.advisor.fullName}
+                            </h4>
+                            <p className="text-xs text-gray-500 truncate">
+                              {req.advisor.firmName}
+                            </p>
+                          </div>
+                        </div>
+
+                        {req.notes && (
+                          <p className="text-xs text-gray-600 bg-gray-50 p-2.5 rounded-xl border border-gray-100 italic">
+                            "{req.notes}"
+                          </p>
+                        )}
+
+                        <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-400">
+                          <span>
+                            Requested on{" "}
+                            {new Date(req.requestedAt).toLocaleDateString(undefined, {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </span>
+                          {req.advisor.specializations.length > 0 && (
+                            <span>• {req.advisor.specializations.join(", ")}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => handleReject(req.requestId)}
+                          className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition-all disabled:opacity-50 cursor-pointer"
+                        >
+                          {isRejecting ? "Declining..." : "Decline"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => handleAccept(req.requestId)}
+                          className="px-4 py-2 bg-[#1A5F3D] hover:bg-[#154d31] text-white rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                        >
+                          {isAccepting ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              Connecting...
+                            </>
+                          ) : (
+                            <>
+                              <Check className="w-3.5 h-3.5" />
+                              Accept Request
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Disconnect Confirmation Dialog */}
+          <Dialog open={disconnectModalOpen} onOpenChange={setDisconnectModalOpen}>
+            <DialogContent className="max-w-md bg-white rounded-3xl p-6 sm:p-8 space-y-4">
+              <DialogHeader>
+                <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-2">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <DialogTitle className="text-center text-lg font-bold text-gray-900">
+                  Disconnect Financial Advisor?
+                </DialogTitle>
+                <DialogDescription className="text-center text-xs text-gray-500 leading-relaxed">
+                  Disconnecting will immediately end your active advisor relationship. Your advisor will
+                  no longer have access to your financial data, portfolio, or goals. Your financial data
+                  remains securely in your SmartFinance account.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-2 pt-2">
+                <label className="block text-xs font-semibold text-gray-700">
+                  Reason for disconnecting <span className="text-gray-400 font-normal">(Optional)</span>
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="e.g. Switching investment strategy, moving to self-directed portfolios..."
+                  value={disconnectReason}
+                  onChange={(e) => setDisconnectReason(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-red-200 focus:border-red-400 transition-all resize-none"
+                />
+              </div>
+
+              <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
+                <button
+                  type="button"
+                  disabled={disconnecting}
+                  onClick={() => setDisconnectModalOpen(false)}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                >
+                  Keep Advisor
+                </button>
+                <button
+                  type="button"
+                  disabled={disconnecting}
+                  onClick={handleConfirmDisconnect}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold shadow transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                >
+                  {disconnecting ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      Disconnecting...
+                    </>
+                  ) : (
+                    "Confirm Disconnection"
+                  )}
+                </button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
+    </Section>
   );
 }

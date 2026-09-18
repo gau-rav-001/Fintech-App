@@ -15,6 +15,7 @@ import { useAuth } from "../auth/AuthContext";
 import { getFinancialProfile, getAdminContent } from "../data/mockData";
 import { getUserProfile } from "../data/userProfile";
 import { AIAssistant } from "../components/AIAssistant";
+import { NotificationBell } from "../components/NotificationBell";
 
 // ─── Sidebar link ─────────────────────────────────────────────────────────────
 function SidebarLink({ icon, label, active, to, onClick }: {
@@ -282,6 +283,7 @@ export function Dashboard() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <NotificationBell actorType="user" />
               <div className="hidden sm:block text-right">
                 <p className="text-xs font-semibold text-gray-800">{displayName}</p>
                 <p className="text-xs text-gray-400">{displayEmail}</p>

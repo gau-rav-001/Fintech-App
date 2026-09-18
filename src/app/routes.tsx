@@ -1,4 +1,4 @@
-import { createBrowserRouter, Outlet, useLocation } from "react-router";
+import { createBrowserRouter, Navigate, Outlet, useLocation } from "react-router";
 import { useEffect } from "react";
 import { Home }              from "./pages/Home";
 import { Login }             from "./pages/Login";
@@ -13,6 +13,10 @@ import { Insurance }         from "./pages/Insurance";
 import { NotFound }          from "./pages/NotFound";
 import { AdminLogin }        from "./pages/AdminLogin";
 import { AdminPortal }       from "./pages/AdminPortal";
+import { AdvisorLogin }       from "./pages/AdvisorLogin";
+import { AdvisorRegister }    from "./pages/AdvisorRegister";
+import { AdvisorInviteClaim } from "./pages/AdvisorInviteClaim";
+import { AdvisorPortal }      from "./pages/AdvisorPortal";
 import { Onboarding }        from "./pages/Onboarding";
 import { Settings }          from "./pages/Settings";
 import { AuthCallback } from "./pages/AuthCallback";
@@ -22,6 +26,7 @@ import {
   ProtectedRoute, OnboardingRoute, AdminRoute,
   GuestOnlyRoute, AdminGuestRoute,
 } from "./auth/ProtectedRoute";
+import { AdvisorRoute, AdvisorGuestRoute } from "./auth/AdvisorRoute";
 
 // Import mockData to trigger auto-seed on app load
 import "./data/mockData";
@@ -45,6 +50,7 @@ export const router = createBrowserRouter([
       { path: "/webinars",  Component: Webinars },
       { path: "/insurance", Component: Insurance },
       { path: "/reset-password", Component: ResetPassword },
+      { path: "/advisor/invite", Component: AdvisorInviteClaim },
 
       // ── User auth (guest only) ─────────────────────────────────────────────
       { path: "/login",  element: <GuestOnlyRoute><Login /></GuestOnlyRoute> },
@@ -52,6 +58,14 @@ export const router = createBrowserRouter([
 
       // ── Admin auth (guest only) ────────────────────────────────────────────
       { path: "/admin/login",  element: <AdminGuestRoute><AdminLogin /></AdminGuestRoute> },
+
+      // ── Advisor auth (guest only) ──────────────────────────────────────────
+      { path: "/advisor/login",    element: <AdvisorGuestRoute><AdvisorLogin /></AdvisorGuestRoute> },
+      { path: "/advisor/register", element: <AdvisorGuestRoute><AdvisorRegister /></AdvisorGuestRoute> },
+
+      // ── Advisor portal (advisor role required) ────────────────────────────
+      { path: "/advisor/portal",   element: <AdvisorRoute><AdvisorPortal /></AdvisorRoute> },
+      { path: "/advisor",          element: <Navigate to="/advisor/portal" replace /> },
 
       // ── Admin portal (admin role required) ────────────────────────────────
       { path: "/admin/portal", element: <AdminRoute><AdminPortal /></AdminRoute> },
