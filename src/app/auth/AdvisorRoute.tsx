@@ -36,7 +36,7 @@ function AdvisorLoadingScreen() {
 // Allows access only if a valid, approved advisor session is active
 export function AdvisorRoute({
   children,
-  redirectTo = "/advisor/login",
+  redirectTo = "/login?role=advisor",
 }: {
   children?: ReactNode;
   redirectTo?: string;

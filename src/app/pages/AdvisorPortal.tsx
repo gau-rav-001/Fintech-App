@@ -114,7 +114,7 @@ export function AdvisorPortal() {
   // ── 401 Session Expiry Handler ──────────────────────────────────────────────
   const handle401 = useCallback(() => {
     setAdvisor(null);
-    navigate("/advisor/login", { replace: true });
+    navigate("/login?role=advisor", { replace: true });
   }, [navigate, setAdvisor]);
 
   // ── Logout ──────────────────────────────────────────────────────────────────
@@ -122,7 +122,7 @@ export function AdvisorPortal() {
     try {
       await advisorLogout();
     } finally {
-      navigate("/advisor/login", { replace: true });
+      navigate("/login?role=advisor", { replace: true });
     }
   }
 

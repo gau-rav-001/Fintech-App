@@ -727,7 +727,7 @@ export function AdvisorRegister() {
 
                 <div className="pt-2">
                   <Link
-                    to="/advisor/login"
+                    to="/login?role=advisor"
                     className="w-full py-3.5 bg-[#1A5F3D] hover:bg-[#154d31] text-white rounded-xl font-semibold shadow-md shadow-emerald-900/10 hover:shadow-lg transition-all inline-flex items-center justify-center gap-2 text-sm"
                   >
                     Go to Advisor Login <ArrowRight className="w-4 h-4" />
@@ -742,7 +742,7 @@ export function AdvisorRegister() {
             <div className="mt-6 pt-5 border-t border-gray-100 text-center space-y-2">
               <p className="text-xs text-gray-500">
                 Already have an advisor account?{" "}
-                <Link to="/advisor/login" className="text-[#1A5F3D] font-semibold hover:underline">
+                <Link to="/login?role=advisor" className="text-[#1A5F3D] font-semibold hover:underline">
                   Sign in here
                 </Link>
               </p>

@@ -13,7 +13,6 @@ import { Insurance }         from "./pages/Insurance";
 import { NotFound }          from "./pages/NotFound";
 import { AdminLogin }        from "./pages/AdminLogin";
 import { AdminPortal }       from "./pages/AdminPortal";
-import { AdvisorLogin }       from "./pages/AdvisorLogin";
 import { AdvisorRegister }    from "./pages/AdvisorRegister";
 import { AdvisorInviteClaim } from "./pages/AdvisorInviteClaim";
 import { AdvisorPortal }      from "./pages/AdvisorPortal";
@@ -52,15 +51,15 @@ export const router = createBrowserRouter([
       { path: "/reset-password", Component: ResetPassword },
       { path: "/advisor/invite", Component: AdvisorInviteClaim },
 
-      // ── User auth (guest only) ─────────────────────────────────────────────
-      { path: "/login",  element: <GuestOnlyRoute><Login /></GuestOnlyRoute> },
+      // ── User auth (Unified login handles guest routing internally) ──
+      { path: "/login",  element: <Login /> },
       { path: "/signup", element: <GuestOnlyRoute><Signup /></GuestOnlyRoute> },
 
-      // ── Admin auth (guest only) ────────────────────────────────────────────
+      //  Admin auth (guest only)
       { path: "/admin/login",  element: <AdminGuestRoute><AdminLogin /></AdminGuestRoute> },
 
-      // ── Advisor auth (guest only) ──────────────────────────────────────────
-      { path: "/advisor/login",    element: <AdvisorGuestRoute><AdvisorLogin /></AdvisorGuestRoute> },
+      //  Advisor auth (Unified login)
+      { path: "/advisor/login",    element: <Navigate to="/login?role=advisor" replace /> },
       { path: "/advisor/register", element: <AdvisorGuestRoute><AdvisorRegister /></AdvisorGuestRoute> },
 
       // ── Advisor portal (advisor role required) ────────────────────────────
@@ -75,7 +74,7 @@ export const router = createBrowserRouter([
 
       // ── Onboarding (logged in, not yet onboarded) ──────────────────────────
       { path: "/onboarding", element: <OnboardingRoute><Onboarding /></OnboardingRoute> },
-      
+
       // Add this route inside the children array
       { path: "/auth/callback", Component: AuthCallback },
 
@@ -85,7 +84,7 @@ export const router = createBrowserRouter([
       { path: "/calculator/lumpsum", element: <ProtectedRoute><LumpsumCalculator /></ProtectedRoute> },
       { path: "/planner",            element: <ProtectedRoute><FinancialPlanner /></ProtectedRoute> },
       { path: "/settings",           element: <ProtectedRoute><Settings /></ProtectedRoute> },
-      
+
       // ── AI Wealth Assistant – single unified chat ─────────────────────────
       { path: "/ai/chat", element: <ProtectedRoute><AIChat /></ProtectedRoute> },
       // Legacy AI sub-routes redirect to unified chat
