@@ -1,7 +1,8 @@
 // backend/utils/email.js
 const nodemailer = require("nodemailer");
 
-const isDev = process.env.NODE_ENV !== "production";
+const emailMode = process.env.EMAIL_MODE || (process.env.NODE_ENV !== "production" ? "mock" : "real");
+const isMock = emailMode === "mock";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DEV — Ethereal
@@ -64,9 +65,9 @@ function getProdTransporter() {
 // ─────────────────────────────────────────────────────────────────────────────
 async function sendMail(to, subject, text, html) {
   const from = process.env.EMAIL_FROM
-    || (isDev ? "SmartFinance <test@smartfinance.dev>" : `"SmartFinance" <${process.env.EMAIL_USER}>`);
+    || (isMock ? "SmartFinance <test@smartfinance.dev>" : `"SmartFinance" <${process.env.EMAIL_USER}>`);
 
-  if (isDev) {
+  if (isMock) {
     const transport = await getEtherealTransporter();
     const info      = await transport.sendMail({ from, to, subject, text, html });
     const previewUrl = nodemailer.getTestMessageUrl(info);
@@ -87,7 +88,7 @@ async function sendMail(to, subject, text, html) {
 // OTP email
 // ─────────────────────────────────────────────────────────────────────────────
 async function sendOTPEmail(toEmail, otp, userName = "User") {
-  if (isDev) {
+  if (isMock) {
     console.log(`\n${"─".repeat(60)}`);
     console.log(`🔑  OTP for ${toEmail}: ${otp}`);
     console.log(`${"─".repeat(60)}\n`);

@@ -77,9 +77,7 @@ const register = async (req, res) => {
     // Generate & store OTP in dedicated advisor registration namespace
     const otp = generateOTP();
     await saveOTP(`advisor:${advisor.email}`, otp);
-    await sendAdvisorOTPEmail(advisor.email, otp, advisor.fullName).catch(err =>
-      console.warn("Email send warning (register):", err.message)
-    );
+    await sendAdvisorOTPEmail(advisor.email, otp, advisor.fullName);
 
     // Audit log (non-blocking)
     AuditLog.create({
@@ -175,9 +173,7 @@ const resendOTP = async (req, res) => {
     if (advisor && !advisor.isEmailVerified) {
       const otp = generateOTP();
       await saveOTP(`advisor:${advisor.email}`, otp);
-      await sendAdvisorOTPEmail(advisor.email, otp, advisor.fullName).catch(err =>
-        console.warn("Email send warning (resend):", err.message)
-      );
+      await sendAdvisorOTPEmail(advisor.email, otp, advisor.fullName);
     }
 
     // Generic response to prevent email enumeration
@@ -328,9 +324,7 @@ const login = async (req, res) => {
     lockout.clear(lockoutKey);
     const otp = generateOTP();
     await saveOTP(`advisor_login:${normalizedEmail}`, otp);
-    await sendAdvisorOTPEmail(advisor.email, otp, advisor.fullName).catch(err =>
-      console.warn("Email send warning (login MFA):", err.message)
-    );
+    await sendAdvisorOTPEmail(advisor.email, otp, advisor.fullName);
 
     AuditLog.create({
       actorType:    "advisor",

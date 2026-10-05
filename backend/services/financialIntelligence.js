@@ -367,11 +367,28 @@ async function calculateGoalProgress(userId) {
     const currentAmount = parseFloat(goal.currentAmount) || 0;
     const monthlyContribution = parseFloat(goal.monthlyContribution) || 0;
     const progress = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
-    const today = new Date();
-    const target = new Date(goal.targetDate);
-    const monthsRemaining = Math.max(0, (target - today) / (30 * 24 * 60 * 60 * 1000));
-    const gap = Math.max(0, targetAmount - currentAmount);
-    const monthlyNeeded = monthsRemaining > 0 ? gap / monthsRemaining : 0;
+    let monthsRemaining = null;
+    let monthlyNeeded = null;
+    let onTrack = false;
+    let status = "no_target_date";
+
+    if (goal.targetDate) {
+      const today = new Date();
+      const target = new Date(goal.targetDate);
+      monthsRemaining = Math.max(0, (target - today) / (30 * 24 * 60 * 60 * 1000));
+      monthlyNeeded = monthsRemaining > 0 ? gap / monthsRemaining : 0;
+      onTrack = monthlyContribution >= monthlyNeeded;
+      status = progress >= 100
+          ? "achieved"
+          : monthlyContribution >= monthlyNeeded
+          ? "on_track"
+          : "behind";
+    } else {
+      if (progress >= 100) {
+         status = "achieved";
+         onTrack = true;
+      }
+    }
 
     // Projected completion with current contribution
     const projectedMonths =
@@ -386,17 +403,12 @@ async function calculateGoalProgress(userId) {
       progress: parseFloat(progress.toFixed(2)),
       gap,
       targetDate: goal.targetDate,
-      monthsRemaining: parseFloat(monthsRemaining.toFixed(1)),
-      monthlyNeeded: parseFloat(monthlyNeeded.toFixed(2)),
+      monthsRemaining: monthsRemaining !== null ? parseFloat(monthsRemaining.toFixed(1)) : null,
+      monthlyNeeded: monthlyNeeded !== null ? parseFloat(monthlyNeeded.toFixed(2)) : null,
       currentContribution: monthlyContribution,
       projectedMonths: projectedMonths === Infinity ? null : parseFloat(projectedMonths.toFixed(1)),
-      onTrack: monthlyContribution >= monthlyNeeded,
-      status:
-        progress >= 100
-          ? "achieved"
-          : monthlyContribution >= monthlyNeeded
-          ? "on_track"
-          : "behind",
+      onTrack,
+      status,
     };
   });
 }
