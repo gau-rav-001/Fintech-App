@@ -71,13 +71,22 @@ router.post("/forgot-password", resetLimiter,
 router.post("/reset-password", resetPasswordRules, validate, resetPassword);
 
 // ── Google OAuth ──────────────────────────────────────────────────────────────
+const checkGoogleConfig = (req, res, next) => {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    return res.status(503).json({ success: false, message: "Google OAuth is not configured on this server." });
+  }
+  next();
+};
+
 router.get("/google",
+  checkGoogleConfig,
   passport.authenticate("google", { scope: ["profile", "email"], session: false }));
 
 router.get("/google/callback",
+  checkGoogleConfig,
   passport.authenticate("google", {
     session:         false,
-    failureRedirect: `${process.env.CLIENT_URL}/login?error=google`,
+    failureRedirect: `${process.env.CLIENT_URL || ""}/login?error=google`,
   }),
   googleCallback);
 
