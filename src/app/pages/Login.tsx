@@ -178,6 +178,7 @@ function ClientLoginForm() {
   const [emailErr, setEmailErr] = useState<string | null>(null);
   const [pwErr, setPwErr] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [serverOtp, setServerOtp] = useState<string | null>(null);
 
   const [forgotPhase, setForgotPhase] = useState<ForgotPhase>("idle");
   const [forgotEmail, setForgotEmail] = useState("");
@@ -232,8 +233,13 @@ function ClientLoginForm() {
       if (!result.success) {
         setError(result.error ?? "Login failed. Please try again.");
       } else {
-        setSuccess(`OTP sent to ${email}. Check your inbox.`);
-        setTimeout(() => { setSuccess(null); setPhase("otp"); }, 1500);
+        if (result.previewOtp) {
+          setServerOtp(result.previewOtp);
+        } else if (email.toLowerCase() === "demo@smartfinance.in") {
+          setServerOtp("123456");
+        }
+        setSuccess(result.message || `OTP sent to ${email}. Check your inbox.`);
+        setTimeout(() => { setSuccess(null); setPhase("otp"); }, 1200);
       }
     } finally {
       setLoading(false);
@@ -351,9 +357,31 @@ function ClientLoginForm() {
                 <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
               </div>
             )}
-            <button onClick={loginWithGoogle} className="w-full flex items-center justify-center gap-3 py-3 border border-border rounded-xl text-sm font-medium text-foreground/80 hover:bg-muted transition-all mb-6">
+            <button onClick={loginWithGoogle} className="w-full flex items-center justify-center gap-3 py-3 border border-border rounded-xl text-sm font-medium text-foreground/80 hover:bg-muted transition-all mb-4">
               <GoogleIcon /> Continue with Google
             </button>
+
+            {/* Quick Demo Login Option */}
+            <div className="mb-5 p-3 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between text-xs">
+              <div className="space-y-0.5">
+                <span className="font-semibold text-primary">Demo User Account</span>
+                <p className="text-muted-foreground font-mono">demo@smartfinance.in • demo1234</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("demo@smartfinance.in");
+                  setPassword("demo1234");
+                  setEmailErr(null);
+                  setPwErr(null);
+                  setError(null);
+                }}
+                className="px-2.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary font-medium rounded-lg transition-colors cursor-pointer"
+              >
+                Auto-fill
+              </button>
+            </div>
+
             <div className="relative flex items-center gap-3 mb-6">
               <div className="flex-1 h-px bg-border" />
               <span className="text-xs text-muted-foreground/70 font-medium">or sign in with email</span>
@@ -439,7 +467,27 @@ function ClientLoginForm() {
             </div>
             <h2 className="text-3xl font-bold text-foreground mb-2 text-center">Verify Your Identity</h2>
             <p className="text-muted-foreground mb-1 text-center">We've sent a 6-digit code to</p>
-            <p className="text-center font-semibold text-primary mb-8">{email}</p>
+            <p className="text-center font-semibold text-primary mb-5">{email}</p>
+
+            {(serverOtp || email.toLowerCase() === "demo@smartfinance.in") && (
+              <div className="mb-6 p-3 rounded-xl bg-primary/10 border border-primary/20 text-center">
+                <p className="text-xs text-muted-foreground mb-1.5">Demo / Verification Code</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const code = (serverOtp || "123456").split("");
+                    setOTP(code);
+                    setOtpError(null);
+                  }}
+                  className="inline-flex items-center gap-2 text-sm font-bold text-primary font-mono bg-card px-3.5 py-1.5 rounded-lg border border-primary/30 shadow-xs hover:bg-primary/5 transition-all cursor-pointer"
+                >
+                  <ShieldCheck className="w-4 h-4 text-primary" />
+                  <span>{serverOtp || "123456"}</span>
+                  <span className="text-xs font-normal text-muted-foreground">(Click to auto-fill)</span>
+                </button>
+              </div>
+            )}
+
             <form onSubmit={handleOTPSubmit} className="space-y-6">
               <div>
                 <div className="flex gap-3 justify-center" onPaste={handleOTPPaste}>

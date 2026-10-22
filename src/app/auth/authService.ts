@@ -85,6 +85,8 @@ export interface LoginResult {
   error?:       string;
   requiresOTP?: boolean;
   user?:        AuthUser;
+  previewOtp?:  string;
+  message?:     string;
 }
 
 // ── User auth ─────────────────────────────────────────────────────────────────
@@ -93,8 +95,13 @@ export async function loginWithCredentials(
   password: string
 ): Promise<LoginResult> {
   try {
-    await authAPI.login({ email, password });
-    return { success: true, requiresOTP: true };
+    const res = await authAPI.login({ email, password }) as any;
+    return {
+      success: true,
+      requiresOTP: true,
+      previewOtp: res.data?.previewOtp,
+      message: res.message,
+    };
   } catch (err: any) {
     return { success: false, error: err.message || "Login failed." };
   }

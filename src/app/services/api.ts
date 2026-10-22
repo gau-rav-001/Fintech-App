@@ -28,15 +28,34 @@ async function apiFetch<T = unknown>(
     ...(options.headers as Record<string, string>),
   };
 
-  const res  = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${BASE}${path}`, {
     ...options,
     headers,
     credentials: "include",
   });
-  const json = await res.json();
+
+  const contentType = res.headers.get("content-type") || "";
+  let json: any = null;
+
+  if (contentType.includes("application/json")) {
+    try {
+      json = await res.json();
+    } catch {
+      json = null;
+    }
+  } else {
+    const rawText = await res.text().catch(() => "");
+    if (rawText.includes("<!DOCTYPE") || rawText.includes("<html")) {
+      const err: any = new Error(
+        "Backend Connection Error: The request hit the frontend server instead of your Render API. Please verify VITE_API_URL is set in Vercel and redeploy."
+      );
+      err.status = res.status;
+      throw err;
+    }
+  }
 
   if (!res.ok) {
-    const err: any = new Error(json.message || "Request failed");
+    const err: any = new Error(json?.message || `Request failed (${res.status})`);
     err.status = res.status;
     err.data   = json;
     throw err;
@@ -71,7 +90,19 @@ export const authAPI = {
   me:     () => apiFetch("/auth/me"),
   logout: () => apiFetch("/auth/logout", { method: "POST" }),
 
-  googleLoginURL: () => `${BASE}/auth/google`,
+  googleLoginURL: () => {
+    if (
+      BASE === "/api" &&
+      typeof window !== "undefined" &&
+      window.location.hostname !== "localhost" &&
+      !window.location.hostname.includes("127.0.0.1")
+    ) {
+      alert(
+        "⚠️ Configuration Warning:\nVITE_API_URL is not set in Vercel environment variables.\nGoogle OAuth requires the backend URL (e.g. https://<backend>.onrender.com/api)."
+      );
+    }
+    return `${BASE}/auth/google`;
+  },
 };
 
 // ── User API ──────────────────────────────────────────────────────────────────
