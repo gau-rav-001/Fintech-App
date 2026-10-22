@@ -88,17 +88,16 @@ async function sendMail(to, subject, text, html) {
 // OTP email
 // ─────────────────────────────────────────────────────────────────────────────
 async function sendOTPEmail(toEmail, otp, userName = "User") {
-  if (isMock) {
-    console.log(`\n${"─".repeat(60)}`);
-    console.log(`🔑  OTP for ${toEmail}: ${otp}`);
-    console.log(`${"─".repeat(60)}\n`);
-  }
+  console.log(`\n${"─".repeat(60)}`);
+  console.log(`🔑  OTP for ${toEmail}: ${otp}`);
+  console.log(`${"─".repeat(60)}\n`);
 
-  await sendMail(
-    toEmail,
-    "Your SmartFinance OTP Code",
-    `Your OTP is: ${otp}\nValid for 5 minutes. Do not share it.`,
-    `
+  try {
+    await sendMail(
+      toEmail,
+      "Your SmartFinance OTP Code",
+      `Your OTP is: ${otp}\nValid for 5 minutes. Do not share it.`,
+      `
 <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;background:#f7f9fb;padding:32px;border-radius:12px;">
   <div style="text-align:center;margin-bottom:24px;">
     <div style="display:inline-block;background:linear-gradient(135deg,#1A5F3D,#3FAF7D);padding:12px 28px;border-radius:10px;">
@@ -115,7 +114,11 @@ async function sendOTPEmail(toEmail, otp, userName = "User") {
   </div>
   <p style="color:#9ca3af;font-size:11px;text-align:center;margin-top:16px;">SmartFinance — Your trusted financial partner</p>
 </div>`
-  );
+    );
+  } catch (err) {
+    console.warn("⚠️ Failed to deliver OTP email over SMTP:", err.message);
+    console.log(`ℹ️ OTP was logged above for verification: ${otp}`);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

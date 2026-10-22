@@ -4,7 +4,17 @@
 // The frontend no longer stores or sends JWT tokens — credentials:include
 // automatically attaches cookies on every request.
 
-const BASE = (import.meta as any).env?.VITE_API_URL || "/api";
+function getBaseUrl(): string {
+  const envUrl = (import.meta as any).env?.VITE_API_URL;
+  if (!envUrl) return "/api";
+  let clean = String(envUrl).trim().replace(/\/+$/, "");
+  if (!clean.endsWith("/api")) {
+    clean += "/api";
+  }
+  return clean;
+}
+
+const BASE = getBaseUrl();
 
 // ── Core fetch wrapper ────────────────────────────────────────────────────────
 async function apiFetch<T = unknown>(
