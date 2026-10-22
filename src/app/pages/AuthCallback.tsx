@@ -14,6 +14,7 @@ export function AuthCallback() {
 
   useEffect(() => {
     const status = params.get("status"); // "dashboard" | "onboarding"
+    const token  = params.get("token");
     const error  = params.get("error");
 
     if (error) {
@@ -21,14 +22,19 @@ export function AuthCallback() {
       return;
     }
 
-    // Cookie is already set by the backend — just fetch the user profile
+    if (token) {
+      localStorage.setItem("sf_token", token);
+    }
+
+    // Fetch user profile (uses Authorization header or cookie)
     fetchUserAfterGoogleAuth()
       .then((user) => {
         if (!user) throw new Error("No user");
         setUser(user);
         navigate(status === "dashboard" ? "/dashboard" : "/onboarding", { replace: true });
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Google auth callback failed:", err);
         navigate("/login?error=session_failed", { replace: true });
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

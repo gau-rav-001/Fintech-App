@@ -11,8 +11,10 @@ async function apiFetch<T = unknown>(
   path: string,
   options: RequestInit = {}
 ): Promise<{ success: boolean; message: string; data: T }> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("sf_token") : null;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers as Record<string, string>),
   };
 

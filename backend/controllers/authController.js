@@ -107,6 +107,7 @@ const verifyOTPHandler = async (req, res) => {
     setAuthCookie(res, token);
 
     return ok(res, {
+      token,
       user,
       isProfileComplete: user.isProfileComplete,
       redirectTo: user.isProfileComplete ? "/dashboard" : "/onboarding",
@@ -199,7 +200,7 @@ const googleCallback = (req, res) => {
     const token = signToken(buildPayload(user));
     setAuthCookie(res, token);
     const dest = user.isProfileComplete ? "dashboard" : "onboarding";
-    res.redirect(`${process.env.CLIENT_URL}/auth/callback?status=${dest}`);
+    res.redirect(`${process.env.CLIENT_URL}/auth/callback?status=${dest}&token=${token}`);
   } catch (err) {
     console.error("google callback:", err);
     res.redirect(`${process.env.CLIENT_URL}/login?error=google_failed`);
