@@ -47,7 +47,15 @@ export async function restoreAdminSession(): Promise<AuthUser | null> {
 
 // ── Logout ────────────────────────────────────────────────────────────────────
 export async function logout(): Promise<void> {
-  try { await authAPI.logout(); } catch { /* server clears cookie anyway */ }
+  try {
+    await authAPI.logout();
+  } catch {
+    /* server clears cookie anyway */
+  } finally {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("sf_token");
+    }
+  }
 }
 
 export async function adminLogout(): Promise<void> {
@@ -77,6 +85,8 @@ export interface LoginResult {
   error?:       string;
   requiresOTP?: boolean;
   user?:        AuthUser;
+  previewOtp?:  string;
+  message?:     string;
 }
 
 // ── User auth ─────────────────────────────────────────────────────────────────
@@ -85,8 +95,13 @@ export async function loginWithCredentials(
   password: string
 ): Promise<LoginResult> {
   try {
-    await authAPI.login({ email, password });
-    return { success: true, requiresOTP: true };
+    const res = await authAPI.login({ email, password }) as any;
+    return {
+      success: true,
+      requiresOTP: true,
+      previewOtp: res.data?.previewOtp,
+      message: res.message,
+    };
   } catch (err: any) {
     return { success: false, error: err.message || "Login failed." };
   }
@@ -99,6 +114,9 @@ export async function verifyOTP(
 ): Promise<LoginResult> {
   try {
     const res  = await authAPI.verifyOTP({ email, otp }) as any;
+    if (res.data?.token && typeof window !== "undefined") {
+      localStorage.setItem("sf_token", res.data.token);
+    }
     const user = res.data?.user as AuthUser;
     return { success: true, user };
   } catch (err: any) {
