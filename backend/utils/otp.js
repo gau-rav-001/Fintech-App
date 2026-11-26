@@ -42,7 +42,7 @@ setInterval(() => {
   for (const [k, v] of memoryStore) {
     if (now > v.expiresAt) memoryStore.delete(k);
   }
-}, 10 * 60 * 1000);
+}, 10 * 60 * 1000).unref();
 
 // ── Account-lockout store (Fix #8) ───────────────────────────────────────────
 // Tracks failed login attempts per email. In production, use Redis.
@@ -56,7 +56,7 @@ setInterval(() => {
   for (const [k, v] of failStore) {
     if (now > v.lockedUntil && now > v.windowEnd) failStore.delete(k);
   }
-}, 10 * 60 * 1000);
+}, 10 * 60 * 1000).unref();
 
 const lockout = {
   record(email) {
@@ -139,4 +139,8 @@ async function clearOTP(email) {
   await adapter.del(email.toLowerCase());
 }
 
-module.exports = { generateOTP, saveOTP, verifyOTP, clearOTP, setAdapter, lockout };
+async function getOTP(email) {
+  return adapter.get(email.toLowerCase());
+}
+
+module.exports = { generateOTP, saveOTP, verifyOTP, clearOTP, getOTP, setAdapter, lockout };

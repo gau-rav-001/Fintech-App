@@ -1,3 +1,5 @@
+import { userAPI } from "../services/api";
+import type { AuthUser } from "../auth/authService";
 // ─── Extended User Profile — Onboarding & Settings Data Layer ─────────────────
 // All data stored in localStorage under "sf_user_profile_db"
 // Replace the getDB/setDB calls with real API calls when connecting a backend.
@@ -93,48 +95,46 @@ export interface UserProfile {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function getProfileDB(): Record<string, UserProfile> {
-  try {
-    return JSON.parse(localStorage.getItem(PROFILE_DB_KEY) || "{}") ?? {};
-  } catch { return {}; }
+// Financial records stay in memory only for the active session.
+let current: UserProfile | null = null;
+export function getUserProfile(userId: string) {
+  return current?.userId === userId ? current : null;
 }
 
-function setProfileDB(db: Record<string, UserProfile>) {
-  localStorage.setItem(PROFILE_DB_KEY, JSON.stringify(db));
-}
-
-// ── CRUD ─────────────────────────────────────────────────────────────────────
-
-export function getUserProfile(userId: string): UserProfile | null {
-  const db = getProfileDB();
-  return db[userId] ?? null;
-}
-
-export function saveUserProfile(profile: UserProfile): void {
-  const db = getProfileDB();
-  db[profile.userId] = { ...profile, updatedAt: new Date().toISOString() };
-  setProfileDB(db);
-}
-
-export function updateUserProfile(userId: string, patch: Partial<UserProfile>): void {
-  const db = getProfileDB();
-  const existing = db[userId];
-  if (!existing) return;
-  db[userId] = { ...existing, ...patch, updatedAt: new Date().toISOString() };
-  setProfileDB(db);
-}
-
-export function hasCompletedOnboarding(userId: string): boolean {
-  const db = getProfileDB();
-  return !!db[userId]?.onboardedAt;
-}
-
-export function markOnboardingDone(userId: string): void {
-  const db = getProfileDB();
-  if (db[userId]) {
-    db[userId].onboardedAt = new Date().toISOString();
-    setProfileDB(db);
+type StoredUser = AuthUser & Partial<PersonalInfo> & Partial<Pick<UserProfile, "goals" | "expenses" | "loans" | "investments" | "updatedAt" | "onboardedAt">> & { location?: Partial<PersonalInfo> };
+export function receiveProfile(user: StoredUser | null) {
+  current = null;
+  if (!user) return;
+  const profile = emptyProfile(user.id, { name: user.fullName, email: user.email, mobile: user.mobile });
+  for (const key of ["gender", "occupation", "maritalStatus", "dependents", "city", "state", "country"] as const) {
+    const value = user[key] ?? user.location?.[key];
+    if (value != null) Object.assign(profile.personal, { [key]: value });
   }
+  profile.personal.dob = user.dob?.slice(0, 10) ?? "";
+  profile.personal.avatarDataUrl = user.profilePicture;
+  if (user.income) profile.income = {
+    monthlyIncome: user.income.monthly, incomeSource: (user.income.source || "other") as IncomeInfo["incomeSource"],
+    additionalIncome: user.income.additionalMonthly, salaryGrowthPct: user.income.annualGrowthPct,
+  };
+  if (user.riskProfile) Object.assign(profile.riskProfile, user.riskProfile);
+  for (const key of ["expenses", "loans", "investments", "goals"] as const) Object.assign(profile, { [key]: user[key] ?? [] });
+  profile.updatedAt = user.updatedAt ?? "";
+  profile.onboardedAt = user.onboardedAt ?? "";
+  current = profile;
+}
+
+export async function persistProfile(profile: UserProfile, onboarding = false) {
+  if (current?.userId !== profile.userId) throw Error("Your session changed. Sign in again.");
+  const { personal, income, riskProfile, expenses, investments, loans, goals } = profile;
+  const { email, avatarDataUrl, dob, ...identity } = personal;
+  const payload = { ...identity, ...(dob && { dob }), ...(avatarDataUrl && { profilePicture: avatarDataUrl }),
+    income: { monthly: income.monthlyIncome, source: income.incomeSource, additionalMonthly: income.additionalIncome, annualGrowthPct: income.salaryGrowthPct },
+    riskProfile, expenses, investments, loans, goals };
+  const result = await (onboarding ? userAPI.onboarding(payload) : userAPI.updateProfile(payload));
+  if (current?.userId !== profile.userId) throw Error("Your session changed.");
+  const { user } = result.data as {user: StoredUser};
+  receiveProfile(user);
+  return user;
 }
 
 // ── Default empty profile skeleton ───────────────────────────────────────────

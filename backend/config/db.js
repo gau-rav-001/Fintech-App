@@ -1,61 +1,36 @@
 require("./env").loadEnv();
 const { Pool } = require("pg");
 
+const hasDbCredentials =
+  process.env.DB_HOST ||
+  process.env.DB_PORT ||
+  process.env.DB_NAME ||
+  process.env.DB_USER ||
+  process.env.DB_PASSWORD;
+
 // ── Pool configuration ────────────────────────────────────────────────────────
-const useSsl =
-  process.env.DB_SSL === "true" ||
-  Boolean(
-    process.env.DATABASE_URL &&
-    (process.env.DATABASE_URL.includes("render.com") ||
-     process.env.DATABASE_URL.includes("neon.tech") ||
-     process.env.DATABASE_URL.includes("supabase.co") ||
-     process.env.DATABASE_URL.includes("sslmode=require"))
-  );
-
-const sslConfig = useSsl ? { rejectUnauthorized: false } : false;
-
-const poolConfig = process.env.DATABASE_URL
+const poolConfig = !hasDbCredentials && process.env.DATABASE_URL
   ? {
-      connectionString: process.env.DATABASE_URL,
-      ssl: sslConfig,
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
-    }
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: true } : false,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+  }
   : {
-      host:     process.env.DB_HOST     || "localhost",
-      port:     parseInt(process.env.DB_PORT || "5432", 10),
-      database: process.env.DB_NAME     || "smartfinance",
-      user:     process.env.DB_USER     || "postgres",
-      password: process.env.DB_PASSWORD || "",
-      ssl:      sslConfig,
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
-    };
+    host: process.env.DB_HOST || "localhost",
+    port: parseInt(process.env.DB_PORT || "5432", 10),
+    database: process.env.DB_NAME || "smartfinance",
+    user: process.env.DB_USER || "postgres",
+    password: process.env.DB_PASSWORD || "",
+    ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: true } : false,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+  };
 
 const pool = new Pool(poolConfig);
-
-// ── Test connection ───────────────────────────────────────────────────────────
-pool.connect((err, client, release) => {
-  if (err) {
-    const errorDetail = err.message || err.code || (err.errors && err.errors[0]?.message) || JSON.stringify(err);
-    console.error("❌ PostgreSQL connection failed:", errorDetail);
-    if (!process.env.DATABASE_URL && !process.env.DB_HOST) {
-      console.error("   👉 REASON: DATABASE_URL is not set in Render environment variables!");
-      console.error("   👉 FIX: Go to Render Dashboard -> Your Service -> Environment -> Add DATABASE_URL");
-    } else {
-      console.error("   Check if PostgreSQL is running and check your DATABASE_URL / DB_* credentials.");
-    }
-    process.exit(1);
-  }
-  release();
-  console.log("✅ PostgreSQL connected successfully");
-});
-
-pool.on("error", (err) => {
-  console.error("PostgreSQL pool error:", err.message);
-});
+pool.on("error", err => console.error("PostgreSQL pool error", err.code || err.name));
 
 // ── Query helper ──────────────────────────────────────────────────────────────
 // Usage: const { rows } = await db.query("SELECT ...", [params])

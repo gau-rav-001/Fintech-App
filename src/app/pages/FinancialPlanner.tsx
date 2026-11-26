@@ -56,8 +56,8 @@ import {
   Radar,
 } from "recharts";
 import { useAuth } from "../auth/AuthContext";
-import { getUserProfile, saveUserProfile } from "../data/userProfile";
-import { syncProfileToFinancialData } from "../data/syncProfile";
+import { getUserProfile, persistProfile } from "../data/userProfile";
+
 import { AIAssistant } from "../components/AIAssistant";
 
 const STEPS = [
@@ -348,10 +348,10 @@ export function FinancialPlanner() {
   const set = (field: keyof FormData, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
-  const next = () => {
+  const next = async () => {
     setDir(1);
-    setStep((s) => {
-      const next = Math.min(s + 1, STEPS.length - 1);
+    {
+      const next = Math.min(step + 1, STEPS.length - 1);
       // When arriving at results step, save back to UserProfile
       if (next === STEPS.length - 1 && user) {
         const up = getUserProfile(user.id);
@@ -401,13 +401,12 @@ export function FinancialPlanner() {
             ] : up.goals,
             updatedAt: new Date().toISOString(),
           };
-          saveUserProfile(updated);
-          syncProfileToFinancialData(updated);
+          try { await persistProfile(updated); } catch (err) { window.alert(err instanceof Error ? err.message : "Save failed."); return; }
           setSaved(true);
         }
       }
-      return next;
-    });
+      setStep(next);
+    }
   };
   const prev = () => { setDir(-1); setStep((s) => Math.max(s - 1, 0)); };
 

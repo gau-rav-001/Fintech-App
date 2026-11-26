@@ -9,7 +9,7 @@ const {
 } = require("../controllers/userController");
 
 // All user routes require a valid JWT
-router.use(authenticate);
+router.use(authenticate, requireUser);
 
 // ── Shared JSONB item validators (Fix #6) ─────────────────────────────────────
 const expenseItemSchema = body("expenses").optional().isArray()
@@ -64,14 +64,13 @@ const loanItemSchema = body("loans").optional().isArray()
     return true;
   });
 
-// Fix #7: profilePicture must be a valid HTTPS URL
-const profilePictureRule = body("profilePicture")
-  .optional()
-  .isURL({ protocols: ["https"], require_protocol: true })
-  .withMessage("Profile picture must be a valid HTTPS URL.");
-
-// ── POST /api/user/onboarding ─────────────────────────────────────────────────
-router.post("/onboarding", [
+const { validateProfile } = require("../services/profileInput");
+const profileRules = [
+  body().custom(validateProfile).bail(),
+  body("fullName").optional().isString().trim().isLength({ min: 1, max: 255 }),
+  body("location.city").optional().isString().isLength({ max: 255 }),
+  body("location.state").optional().isString().isLength({ max: 255 }),
+  body("location.country").optional().isString().isLength({ max: 255 }),
   body("dob")
     .optional()
     .isISO8601().withMessage("Invalid date of birth (use YYYY-MM-DD)."),
@@ -88,7 +87,7 @@ router.post("/onboarding", [
 
   body("dependents")
     .optional()
-    .isInt({ min: 0 }).withMessage("Dependents must be a non-negative integer."),
+    .isInt({ min: 0, max: 100 }).withMessage("Dependents must be a non-negative integer."),
 
   body("occupation")
     .optional()
@@ -141,36 +140,10 @@ router.post("/onboarding", [
   goalItemSchema,
   loanItemSchema,
 
-  // Fix #7
-  profilePictureRule,
-
-], validate, onboarding);
-
-// ── Profile ───────────────────────────────────────────────────────────────────
+];
+router.post("/onboarding", profileRules, validate, onboarding);
 router.get("/profile", getProfile);
-
-router.put("/update", [
-  body("fullName").optional().trim().notEmpty().isLength({ max: 255 }),
-  body("mobile").optional().matches(/^\+?[\d\s\-]{7,15}$/),
-  body("gender").optional().isIn(["male", "female", "other", "prefer_not_to_say"]),
-  body("maritalStatus").optional().isIn(["single", "married", "divorced", "widowed"]),
-  body("occupation").optional().isString().trim().isLength({ max: 255 }),
-  body("income.source").optional()
-    .isIn(["salaried", "self_employed", "business", "freelance", "other"]),
-  body("riskProfile.tolerance").optional().isIn(["low", "medium", "high"]),
-  body("riskProfile.investmentStyle").optional()
-    .isIn(["conservative", "balanced", "aggressive"]),
-  body("riskProfile.timeHorizonYears")
-    .optional()
-    .isInt({ min: 1, max: 50 }).withMessage("Time horizon must be between 1 and 50 years."),
-
-  // Fix #6 + #7 on update too
-  expenseItemSchema,
-  investmentItemSchema,
-  goalItemSchema,
-  loanItemSchema,
-  profilePictureRule,
-], validate, updateProfile);
+router.put("/update", profileRules, validate, updateProfile);
 
 // ── Password ──────────────────────────────────────────────────────────────────
 router.post("/change-password", [
@@ -228,5 +201,7 @@ router.get("/advisor/active", requireUser, getActiveAdvisor);
 router.post("/advisor/requests/:requestId/accept", requireUser, acceptConnectionRequest);
 router.post("/advisor/requests/:requestId/reject", requireUser, rejectRequestRules, validate, rejectConnectionRequest);
 router.post("/advisor/terminate", requireUser, terminateRules, validate, terminateActiveAdvisor);
+
+router.use("/advisor/workspace/:relationshipId", requireUser, require("./consultationRoutes").workspaceRoutes("user"));
 
 module.exports = router;

@@ -19,7 +19,7 @@ export function Navbar() {
 
   const { language, setLanguage, t, languageOptions } =
     useLanguage();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isUserAuthenticated: isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
   const location = useLocation();
@@ -29,8 +29,8 @@ export function Navbar() {
 
   // Get profile avatar
   const up = user ? getUserProfile(user.id) : null;
-  const avatarUrl = up?.personal.avatarDataUrl || user?.avatar;
-  const displayName = up?.personal.fullName || user?.name || "Account";
+  const avatarUrl = up?.personal.avatarDataUrl || user?.profilePicture;
+  const displayName = up?.personal.fullName || user?.fullName || "Account";
   const initials = displayName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
 
   const selectedLanguageLabel =

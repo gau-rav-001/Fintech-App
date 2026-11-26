@@ -2,8 +2,6 @@
 // Creates tables for Phase 2: advisors, advisor_client_relationships, audit_logs.
 // Fully additive & idempotent (safe to re-run).
 
-require("dotenv").config({ path: require("path").join(__dirname, "../.env") });
-const db = require("../config/db");
 
 const SQL = `
 
@@ -144,27 +142,19 @@ EXCEPTION WHEN duplicate_object THEN null; END $$;
 `;
 
 async function migrate() {
-  console.log("🔄 Running Phase 2.1 Database Migrations...");
+  const db = require("../config/db");
   try {
-    await db.query(SQL);
-    console.log("✅ Phase 2.1 Database objects created / verified successfully.\n");
-    console.log("  New Tables:");
-    console.log("    • advisors                    — Broker/Advisor identities & professional credentials");
-    console.log("    • advisor_client_relationships — Association lifecycle, invitations & client mapping");
-    console.log("    • audit_logs                  — Comprehensive compliance & security audit trail");
-    console.log("\n  New ENUMs:");
-    console.log("    • advisor_approval_status      — ('pending', 'approved', 'rejected', 'suspended')");
-    console.log("    • relationship_status          — ('invited', 'pending_user_acceptance', 'active', 'rejected', 'suspended', 'terminated', 'reassigned')");
-    console.log("    • relationship_initiator       — ('advisor', 'user', 'admin')");
-    console.log("\n  Key Constraints:");
-    console.log("    • idx_acr_single_active_advisor — Partial unique index enforcing max 1 active advisor per user\n");
-  } catch (err) {
-    console.error("❌ Phase 2.1 Migration failed:", err.message);
-    console.error(err);
-    process.exit(1);
+    await db.transaction(client => client.query(SQL));
   } finally {
     await db.pool.end();
   }
 }
 
-migrate();
+if (require.main === module) {
+  migrate().catch(error => {
+    console.error("Migration failed", error.code || error.name);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { migrate, SQL };

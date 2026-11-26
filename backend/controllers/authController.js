@@ -35,7 +35,7 @@ setInterval(() => {
   for (const [token, data] of resetTokens) {
     if (now > data.expiresAt) resetTokens.delete(token);
   }
-}, 5 * 60 * 1000);
+}, 5 * 60 * 1000).unref();
 
 // ── POST /api/auth/signup ─────────────────────────────────────────────────────
 const signup = async (req, res) => {

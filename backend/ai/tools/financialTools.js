@@ -22,45 +22,8 @@ const {
 } = require("../../services/financialUtils");
 
 const User = require("../../models/User");
-const Loan = require("../../models/Loan");
-const Income = require("../../models/Income");
-const Investment = require("../../models/Investment");
-
-// ── BUG FIX: Loan.findByUserId() / Income.findByUserId() query separate
-// normalized tables (loan_records / income_records) that onboarding never
-// writes to — onboarding saves loans/income straight onto the `users` row
-// (users.loans JSONB, users.income_monthly/income_additional columns).
-// That made every loan- and tax-related tool below silently return empty/
-// zero data, even when the user had completed onboarding.
-//
-// Fix: read loans/income from User.findById() (ground truth — same source
-// userController.getDashboardSummary uses) and reshape into the same field
-// names the rest of this file already expects (outstandingAmount, emi,
-// interestRatePct, loanType / amount, frequency).
-async function getLoansFromUser(userId) {
-  const user = await User.findById(userId);
-  const loans = user?.loans || [];
-  return loans.map((l, i) => ({
-    id: l.id || `loan-${i}`,
-    loanType: l.loanType || l.type || "other",
-    outstandingAmount: parseFloat(l.outstandingAmount) || 0,
-    emi: parseFloat(l.emi) || 0,
-    interestRatePct: parseFloat(l.interestRatePct ?? l.interestRate) || 0,
-  }));
-}
-
-async function getIncomeFromUser(userId) {
-  const user = await User.findById(userId);
-  const incomeObj = user?.income || {};
-  const entries = [];
-  if (parseFloat(incomeObj.monthly) > 0) {
-    entries.push({ source: incomeObj.source || "primary", amount: parseFloat(incomeObj.monthly), frequency: "monthly" });
-  }
-  if (parseFloat(incomeObj.additionalMonthly) > 0) {
-    entries.push({ source: "additional", amount: parseFloat(incomeObj.additionalMonthly), frequency: "monthly" });
-  }
-  return entries;
-}
+const { getLoans: getLoansFromUser, getIncome: getIncomeFromUser } = require("../../services/FinancialDataService");
+const { parseRupees } = require("../../services/financialAmount");
 
 // ── Tool 1: Get Financial Profile ─────────────────────────────────────────────
 async function getFinancialProfile(userId) {
@@ -181,61 +144,7 @@ async function goalAnalysis(userId) {
 // ── Tool 7: Retirement Analysis ───────────────────────────────────────────────
 async function retirementAnalysis(userId) {
   const result = await calculateRetirementCorpus(userId);
-  if (result.error) {
-    const [user, growth, budget] = await Promise.all([
-      User.findById(userId),
-      calculateInvestmentGrowth(userId),
-      calculateBudgetHealth(userId),
-    ]);
-
-    const currentAge = user?.dob ? new Date().getFullYear() - new Date(user.dob).getFullYear() : 30;
-    const retirementGoal = (user?.goals || []).find((g) =>
-      g.category === "retirement" || /retire|retirement/i.test(g.name || "")
-    );
-    const targetYear = retirementGoal?.targetDate
-      ? new Date(retirementGoal.targetDate).getFullYear()
-      : null;
-    const retirementAge = targetYear && targetYear > new Date().getFullYear()
-      ? currentAge + (targetYear - new Date().getFullYear())
-      : 60;
-    const lifeExpectancy = 85;
-    const expectedReturn = 10;
-    const inflation = 6;
-    const currentCorpus = growth?.totalValue || 0;
-    const monthlyContribution = growth?.monthlySIP || Math.max(0, Math.round((budget?.monthlySavings || 0) * 0.5));
-    const monthlyExpense = Math.max(0, Math.round((budget?.monthlyExpense || 0) * 0.75));
-    const yearsToRetirement = Math.max(1, retirementAge - currentAge);
-    const yearsInRetirement = Math.max(1, lifeExpectancy - retirementAge);
-
-    const monthlyRate = expectedReturn / 100 / 12;
-    const months = yearsToRetirement * 12;
-    const fvCurrentCorpus = currentCorpus * Math.pow(1 + expectedReturn / 100, yearsToRetirement);
-    const fvContributions = monthlyContribution * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
-    const projectedCorpus = fvCurrentCorpus + fvContributions;
-    const inflationAdjustedExpense = monthlyExpense * Math.pow(1 + inflation / 100, yearsToRetirement);
-    const requiredCorpus = (inflationAdjustedExpense * 12 * yearsInRetirement) / (1 + expectedReturn / 100 - inflation / 100);
-    const gap = requiredCorpus - projectedCorpus;
-    const additionalSIPNeeded = gap > 0
-      ? (gap * monthlyRate) / (Math.pow(1 + monthlyRate, months) - 1)
-      : 0;
-
-    return {
-      currentAge,
-      retirementAge,
-      lifeExpectancy,
-      projectedCorpus: Math.round(projectedCorpus),
-      requiredCorpus: Math.round(requiredCorpus),
-      gap: Math.round(gap),
-      sufficient: gap <= 0,
-      additionalSIPNeeded: Math.round(Math.max(0, additionalSIPNeeded)),
-      estimated: true,
-      assumptions: {
-        expectedReturn,
-        inflation,
-        monthlyExpensePostRetirement: Math.round(inflationAdjustedExpense),
-      },
-    };
-  }
+  if (result.error) return result;
 
   return {
     currentAge: result.currentAge,
@@ -244,6 +153,7 @@ async function retirementAnalysis(userId) {
     requiredCorpus: result.requiredCorpus,
     gap: result.corpusGap,
     sufficient: result.isSufficient,
+    assumptions: { ...result.assumptions, contributionTiming: "month end", withdrawalTiming: "annual, beginning at retirement" },
     additionalSIPNeeded: result.additionalSIPNeeded,
   };
 }
@@ -274,6 +184,8 @@ async function emergencyFundCheck(userId) {
 
 // ── Tool 10: Affordability Check ──────────────────────────────────────────────
 async function affordabilityCheck(userId, amount, type = "one_time") {
+  amount = parseRupees(amount);
+  if (!(amount > 0) || !["emi", "one_time"].includes(type)) return { error: "Enter a positive purchase amount and a valid purchase type." };
   const result = await calculateAffordability(userId, amount, type);
   return {
     canAfford: result.canAfford,
@@ -284,10 +196,10 @@ async function affordabilityCheck(userId, amount, type = "one_time") {
 
 // ── Tool 11: Wealth Forecast ──────────────────────────────────────────────────
 async function wealthForecast(userId, years = 10) {
-  const [netWorth, growth, budget] = await Promise.all([
+  if (!Number.isInteger(years) || years < 1 || years > 100) return { error: "Forecast horizon must be 1–100 whole years." };
+  const [netWorth, growth] = await Promise.all([
     calculateNetWorth(userId),
     calculateInvestmentGrowth(userId),
-    calculateBudgetHealth(userId),
   ]);
 
   const currentWealth = netWorth.netWorth;
@@ -305,7 +217,9 @@ async function wealthForecast(userId, years = 10) {
 }
 
 // ── Tool 12: What-If Simulator ────────────────────────────────────────────────
-async function whatIfSimulator(userId, changes) {
+async function whatIfSimulator(userId, changes = {}) {
+  const adjustments = Object.values(changes);
+  if (!adjustments.some(v => v !== 0) || adjustments.some(v => !Number.isFinite(v) || parseRupees(Math.abs(v)) === null)) return { error: "Specify an income or expense change in rupees." };
   const budget = await calculateBudgetHealth(userId);
 
   const baseline = {
@@ -319,15 +233,16 @@ async function whatIfSimulator(userId, changes) {
   if (changes.incomeChange) modified.income += changes.incomeChange;
   if (changes.expenseChange) modified.expense += changes.expenseChange;
 
-  modified.savings = modified.income - modified.expense;
-  modified.savingsRate = (modified.savings / modified.income) * 100;
+  if (modified.income < 0 || modified.expense < 0) return { error: "The adjusted income or expense cannot be negative." };
+  modified.savings = baseline.savings + (changes.incomeChange || 0) - (changes.expenseChange || 0);
+  modified.savingsRate = modified.income > 0 ? (modified.savings / modified.income) * 100 : null;
 
   return {
     baseline,
     modified,
     impact: {
       savingsChange: modified.savings - baseline.savings,
-      savingsRateChange: modified.savingsRate - baseline.savingsRate,
+      savingsRateChange: modified.savingsRate === null ? null : modified.savingsRate - baseline.savingsRate,
     },
   };
 }
@@ -356,7 +271,7 @@ async function loanAdvisor(userId) {
       priority: l.interestRatePct > 10 ? "high" : l.interestRatePct > 7 ? "medium" : "low",
     })),
     strategy: "Pay off highest interest loans first (debt avalanche)",
-    extraPayment: Math.round(budget.monthlySavings * 0.5),
+    extraPayment: Math.max(0, Math.round(budget.monthlySavings * 0.5)),
   };
 }
 
@@ -368,51 +283,24 @@ async function investmentAdvisor(userId) {
     calculateRiskProfile(userId),
   ]);
 
-  const age = user?.dob ? new Date().getFullYear() - new Date(user.dob).getFullYear() : 35;
-  const { suggestAssetAllocation } = require("../../services/financialUtils");
-  const ideal = suggestAssetAllocation(age, risk.riskCategory);
-
   return {
     current: {
       portfolio: growth.totalValue,
       returns: growth.returnPct,
       allocation: risk.allocation,
     },
-    recommended: {
-      allocation: ideal,
-      reasoning: `Based on age ${age} and ${risk.riskCategory} risk profile`,
-    },
-    gaps: {
-      equity: ideal.equity - risk.allocation.equity,
-      debt: ideal.debt - risk.allocation.debt,
-    },
+    disclosure: "Descriptive portfolio breakdown. Assessing a suitable allocation requires a qualified advisor and your investment objectives.",
   };
 }
 
 // ── Tool 15: Tax Planner ──────────────────────────────────────────────────────
 async function taxPlanner(userId) {
-  const [incomes, user, loans] = await Promise.all([
-    getIncomeFromUser(userId),
-    User.findById(userId),
-    getLoansFromUser(userId),
-  ]);
-  const investments = (user?.investments || []).map((inv) => ({
-    investmentType: inv.investmentType || inv.type || "other",
-    investedAmount: parseFloat(inv.investedAmount) || 0,
-  }));
-
-  const annualIncome = incomes.reduce((s, i) => s + (i.frequency === "monthly" ? i.amount * 12 : i.amount), 0);
-  const section80C = Math.min(investments.filter(i => ["ppf", "nps", "mutual_fund"].includes(i.investmentType)).reduce((s, i) => s + i.investedAmount, 0), 150000);
-  const homeLoan = Math.min(loans.filter(l => l.loanType === "home").reduce((s, l) => s + (l.outstandingAmount * l.interestRatePct / 100), 0), 200000);
-
+  const incomes = await getIncomeFromUser(userId);
+  const { annualizeAmount } = require("../../services/financialIntelligence")._helpers;
+  const annualIncome = incomes.reduce((sum, income) => sum + annualizeAmount(income.amount, income.frequency), 0);
   return {
-    annualIncome: Math.round(annualIncome),
-    deductions: {
-      section80C,
-      remaining80C: Math.max(0, 150000 - section80C),
-      homeLoanInterest: Math.round(homeLoan),
-    },
-    taxSaving: Math.round((section80C + homeLoan) * 0.3),
+    annualIncome,
+    assumptions: "Annualized recurring income before taxes. Tax liability and deductions require the assessment year, tax regime and eligible payments.",
   };
 }
 

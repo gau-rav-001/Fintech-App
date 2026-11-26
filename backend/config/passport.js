@@ -2,18 +2,18 @@ const passport      = require("passport");
 const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const User           = require("../models/User");
 
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_CALLBACK_URL) {
   passport.use(
     new GoogleStrategy(
       {
         clientID:     process.env.GOOGLE_CLIENT_ID,
         clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        callbackURL:  process.env.GOOGLE_CALLBACK_URL || "http://localhost:5000/api/auth/google/callback",
+        callbackURL:  process.env.GOOGLE_CALLBACK_URL,
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
           const email = profile.emails?.[0]?.value;
-          if (!email) return done(new Error("No email from Google"), null);
+          if (!email || profile._json?.email_verified !== true) return done(new Error("No email from Google"), null);
 
           // Try by googleId first, then by email
           let user = await User.findByGoogleId(profile.id);

@@ -41,7 +41,7 @@ function formatUser(row) {
       monthly:         parseFloat(row.income_monthly)    || 0,
       source:          row.income_source,
       additionalMonthly: parseFloat(row.income_additional) || 0,
-      annualGrowthPct: parseFloat(row.income_growth_pct) || 8,
+      annualGrowthPct: Number(row.income_growth_pct ?? 8),
     },
     riskProfile: {
       tolerance:        row.risk_tolerance,

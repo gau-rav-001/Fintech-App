@@ -60,6 +60,8 @@ import {
 import { Skeleton } from "../components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import { NotificationBell } from "../components/NotificationBell";
+import { ConsultationWorkspace } from "../components/ConsultationWorkspace";
+import { PracticeActivity, PracticeProfile } from "../components/AdvisorPractice";
 
 // ── Financial INR Formatters ──────────────────────────────────────────────────
 function formatINR(val: number | null | undefined): string {
@@ -699,6 +701,7 @@ export function AdvisorPortal() {
               </div>
 
               {/* Stats Error / Retry */}
+              <PracticeActivity/>
               {statsError && (
                 <div className="p-4 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-between text-sm text-red-800">
                   <div className="flex items-center gap-3">
@@ -1453,6 +1456,7 @@ export function AdvisorPortal() {
                 )}
 
                 {/* Bio */}
+                {advisor && <PracticeProfile advisor={advisor} onSaved={setAdvisor}/>}
                 {advisor?.bio && (
                   <div className="space-y-2 pt-2">
                     <p className="text-xs font-semibold text-gray-700">Professional Bio</p>
@@ -1465,9 +1469,7 @@ export function AdvisorPortal() {
                 <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 flex items-start gap-3 text-xs text-amber-800">
                   <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0 text-amber-600" />
                   <div className="leading-relaxed">
-                    Advisor profile information is officially registered and verified by platform
-                    compliance administrators. To modify your credentials, licensing, or practice
-                    affiliation, submit a support request.
+                    Platform approval grants access to this workspace. Registration details are supplied by the advisor.
                   </div>
                 </div>
               </div>
@@ -1570,6 +1572,7 @@ export function AdvisorPortal() {
 
                 {/* Tabbed Financial Drilldown */}
                 <Tabs defaultValue="overview" className="w-full">
+                  <ConsultationWorkspace role="advisor" key={clientDetail.relationship.relationshipId} relationshipId={clientDetail.relationship.relationshipId}/>
                   <TabsList className="w-full grid grid-cols-4 bg-gray-100 p-1 rounded-xl">
                     <TabsTrigger value="overview" className="text-xs">
                       Income & Risk

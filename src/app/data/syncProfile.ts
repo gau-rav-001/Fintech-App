@@ -6,9 +6,9 @@
 //   syncProfile.ts  ← imports BOTH, no circle
 
 import { type UserProfile } from "./userProfile";
-import { type FinancialProfile, saveFinancialProfile } from "./mockData";
+import { type FinancialProfile } from "./mockData";
 
-export function syncProfileToFinancialData(profile: UserProfile): void {
+export function financialSummary(profile: UserProfile): FinancialProfile {
   // ── Investment buckets ──────────────────────────────────────────────────────
   const mf      = profile.investments.filter(i => i.type === "mutual_fund").reduce((s, i) => s + i.currentValue, 0);
   const stocks  = profile.investments.filter(i => i.type === "stocks"     ).reduce((s, i) => s + i.currentValue, 0);
@@ -69,7 +69,7 @@ export function syncProfileToFinancialData(profile: UserProfile): void {
                     : "self_employed",
     cityTier:         "tier1",
     monthlyIncome:    profile.income.monthlyIncome + profile.income.additionalIncome,
-    monthlyExpenses:  totalExpenses > 0 ? totalExpenses : profile.income.monthlyIncome * 0.6,
+    monthlyExpenses:  totalExpenses,
     savingsAccount:   0,
     mutualFunds:      mf,
     stocks,
@@ -82,8 +82,8 @@ export function syncProfileToFinancialData(profile: UserProfile): void {
     personalLoan:     persLoan,
     creditCardDebt:   ccDebt,
     otherLiabilities: otherLoan,
-    lifeInsuranceCover:   profile.income.monthlyIncome * 12 * 10,
-    healthInsuranceCover: 500000,
+    lifeInsuranceCover:   0,
+    healthInsuranceCover: 0,
     vehicleInsurance:     profile.loans.some(l => l.type === "car"),
     homeInsurance:        false,
     monthlysSIP:      monthlySIP,
@@ -94,5 +94,5 @@ export function syncProfileToFinancialData(profile: UserProfile): void {
     updatedAt:         new Date().toISOString(),
   };
 
-  saveFinancialProfile(fp);
+  return fp;
 }

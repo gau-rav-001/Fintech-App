@@ -26,3 +26,9 @@ npm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+# Private database exports and environment overrides
+*.dump
+*.backup
+*.dpapi
+.env.*
+!.env.example

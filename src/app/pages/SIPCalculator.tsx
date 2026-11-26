@@ -3,8 +3,8 @@ import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { AIAssistant } from "../components/AIAssistant";
 import { useAuth } from "../auth/AuthContext";
-import { getUserProfile, saveUserProfile } from "../data/userProfile";
-import { syncProfileToFinancialData } from "../data/syncProfile";
+import { getUserProfile, persistProfile } from "../data/userProfile";
+
 import {
   AreaChart,
   Area,
@@ -47,7 +47,7 @@ export function SIPCalculator() {
   const [timePeriod, setTimePeriod] = useState(defaultYears);
   const [savedToast, setSavedToast] = useState<string | null>(null);
 
-  function handleSavePlan() {
+  async function handleSavePlan() {
     if (!user) { setSavedToast("Please log in to save your plan."); setTimeout(() => setSavedToast(null), 3000); return; }
     const up = getUserProfile(user.id);
     if (!up) return;
@@ -68,8 +68,7 @@ export function SIPCalculator() {
       ],
       updatedAt: new Date().toISOString(),
     };
-    saveUserProfile(updated);
-    syncProfileToFinancialData(updated);
+    try { await persistProfile(updated); } catch (err) { setSavedToast(err instanceof Error ? err.message : "Save failed."); return; }
     setSavedToast("SIP plan saved to your profile!");
     setTimeout(() => setSavedToast(null), 3000);
   }

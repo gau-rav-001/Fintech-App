@@ -1,3 +1,4 @@
+import { financialSummary } from "../data/syncProfile";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
@@ -125,15 +126,17 @@ export function Dashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const fp   = getFinancialProfile(user?.id ?? "demo_001");
+
   const cms  = getAdminContent();
   const up   = getUserProfile(user?.id ?? "");
 
+  const fp = useMemo(() => up ? financialSummary(up) : null, [up]);
+
   async function handleLogout() { await logout(); navigate("/login", { replace: true }); }
 
-  const displayName  = up?.personal.fullName || user?.name  || "User";
+  const displayName  = up?.personal.fullName || user?.fullName  || "User";
   const displayEmail = up?.personal.email    || user?.email || "";
-  const avatarUrl    = up?.personal.avatarDataUrl || user?.avatar;
+  const avatarUrl    = up?.personal.avatarDataUrl || user?.profilePicture;
   const initials     = displayName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
 
   // ── Computed financials ──────────────────────────────────────────────────
@@ -170,8 +173,8 @@ export function Dashboard() {
     }
     // Insurance
     const recommendedLife = fp.monthlyIncome * 12 * 12;
-    if (fp.lifeInsuranceCover < recommendedLife) {
-      list.push({ type: "warning", message: `You are underinsured. Life cover ${fmt(fp.lifeInsuranceCover)} vs recommended ${fmt(recommendedLife)}.`, action: "Increase term life cover to protect your dependents." });
+    if (fp.lifeInsuranceCover > 0 && fp.lifeInsuranceCover < recommendedLife) {
+      list.push({ type: "warning", message: `You are underinsured. Life cover ${fp.lifeInsuranceCover ? fmt(fp.lifeInsuranceCover) : "Unreported"} vs recommended ${fmt(recommendedLife)}.`, action: "Increase term life cover to protect your dependents." });
     }
     if (!fp.homeInsurance) {
       list.push({ type: "info", message: "You don't have home insurance. Your property worth " + fmt(fp.realEstate) + " is unprotected.", action: "Consider a home insurance plan starting at ₹299/month." });
@@ -528,7 +531,7 @@ export function Dashboard() {
                   <div>
                     <h2 className="text-xl font-bold">{displayName}</h2>
                     <p className="text-white/75 text-sm">{displayEmail}</p>
-                    <p className="text-white/75 text-sm">{up?.personal.mobile || user?.phone || ""}</p>
+                    <p className="text-white/75 text-sm">{up?.personal.mobile || user?.mobile || ""}</p>
                     <span className="inline-block mt-2 text-xs bg-white/20 px-2 py-0.5 rounded-full">
                       {up?.personal.occupation || (fp.employmentType === "salaried" ? "Salaried" : fp.employmentType === "business" ? "Business Owner" : "Self-Employed")}
                       {up?.personal.city ? ` · ${up.personal.city}` : ""}
@@ -654,8 +657,8 @@ export function Dashboard() {
                       <Shield className="w-4 h-4 text-primary" /> Insurance Coverage
                     </h3>
                     {[
-                      ["Life Insurance",    fmt(fp.lifeInsuranceCover)],
-                      ["Health Insurance",  fmt(fp.healthInsuranceCover)],
+                      ["Life Insurance",    fp.lifeInsuranceCover ? fmt(fp.lifeInsuranceCover) : "Unreported"],
+                      ["Health Insurance",  fp.healthInsuranceCover ? fmt(fp.healthInsuranceCover) : "Unreported"],
                       ["Vehicle Insurance", fp.vehicleInsurance ? "✅ Active" : "❌ None"],
                       ["Home Insurance",    fp.homeInsurance ? "✅ Active" : "❌ None"],
                     ].map(([k, v]) => (

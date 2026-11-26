@@ -77,6 +77,9 @@ const requestRules = [
 
 // All advisor operational routes require a valid, approved advisor database session
 router.use(requireAdvisorSession);
+const { workspaceRoutes, practice } = require("./consultationRoutes");
+router.use("/practice", practice);
+router.use("/workspace/:relationshipId", workspaceRoutes("advisor"));
 
 // ── GET /api/advisor/dashboard/stats (Phase 5.3 - Dashboard Statistics) ────────
 router.get("/dashboard/stats", getDashboardStats);

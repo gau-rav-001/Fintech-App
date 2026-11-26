@@ -15,6 +15,7 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 // ── Token extraction helpers ──────────────────────────────────────────────────
 // Read from HttpOnly cookie first, fall back to Authorization header
 function extractToken(req) {
+  if (req.baseUrl === "/api/admin" && req.cookies?.[ADMIN_COOKIE]) return req.cookies[ADMIN_COOKIE];
   if (req.cookies?.[COOKIE_NAME])  return req.cookies[COOKIE_NAME];
   if (req.cookies?.[ADMIN_COOKIE]) return req.cookies[ADMIN_COOKIE];
   const header = req.headers?.authorization;
@@ -37,6 +38,7 @@ const authenticate = async (req, res, next) => {
 
     const decoded = await verifyToken(token);
 
+    if (!["admin", "user"].includes(decoded.role)) return fail(res, "Incorrect account type.", 403);
     const actor = decoded.role === "admin"
       ? await Admin.findById(decoded.id)
       : await User.findById(decoded.id);

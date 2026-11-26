@@ -1,30 +1,19 @@
-// backend/scripts/start.js
-// Runs migrations and seeds before starting the server
-const { spawn } = require("child_process");
-
-function runCommand(command, args) {
-  return new Promise((resolve, reject) => {
-    console.log(`\n▶ Running: ${command} ${args.join(" ")}`);
-    const proc = spawn(command, args, { stdio: "inherit", shell: true });
-    proc.on("close", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`Command failed with exit code ${code}`));
-    });
-  });
-}
+const { loadEnv, validateProduction } = require("../config/env");
+loadEnv();
 
 async function start() {
+  validateProduction();
+  const db = require("../config/db");
   try {
-    console.log("🚀 Initializing SmartFinance Backend & Database...");
-    await runCommand("node", ["db/migrate.js"]);
-    await runCommand("node", ["db/seed.js"]);
-    console.log("✅ Database initialized successfully. Starting server...\n");
-    require("../server.js");
+    await require("../db/run").migrateDatabase(db);
+    require("../server");
   } catch (error) {
-    console.error("❌ Initialization failed:", error.message);
-    // Still start server so developer can inspect or retry
-    require("../server.js");
+    await db.pool.end();
+    throw error;
   }
 }
 
-start();
+start().catch(error => {
+  console.error("API initialization failed", error.safeMessage || error.code || error.name);
+  process.exitCode = 1;
+});

@@ -1,16 +1,8 @@
-FROM node:20-alpine
-
+FROM node:22-alpine
 WORKDIR /app
-
-# Install dependencies first for Docker caching
-COPY package*.json ./
-RUN npm install
-
-# Copy source code
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 COPY . .
-
-# Expose port
+USER node
 EXPOSE 5000
-
-# Run migrations, seed, and start the server automatically
-CMD ["npm", "run", "start:init"]
+CMD ["node", "scripts/start.js"]

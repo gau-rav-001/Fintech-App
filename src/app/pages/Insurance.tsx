@@ -3,8 +3,6 @@ import { Link } from "react-router";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import { useAuth } from "../auth/AuthContext";
-import { getUserProfile, saveUserProfile } from "../data/userProfile";
-import { syncProfileToFinancialData } from "../data/syncProfile";
 import {
   Heart,
   Car,
@@ -189,23 +187,14 @@ const insuranceTypes = [
 export function Insurance() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [quoteToast, setQuoteToast] = useState<string | null>(null);
-  const { user, isAuthenticated } = useAuth();
+  const { user, isUserAuthenticated: isAuthenticated } = useAuth();
 
   const toggle = (id: string) =>
     setExpandedId((prev) => (prev === id ? null : id));
 
   function handleGetQuote(insuranceType: string) {
     if (!user) return;
-    const up = getUserProfile(user.id);
-    if (!up) return;
-    // Mark the insurance type as noted in profile
-    const updated = {
-      ...up,
-      updatedAt: new Date().toISOString(),
-    };
-    saveUserProfile(updated);
-    syncProfileToFinancialData(updated);
-    setQuoteToast(`Quote request for ${insuranceType} saved! An advisor will contact you.`);
+    window.location.assign("/settings?tab=advisor");
     setTimeout(() => setQuoteToast(null), 4000);
   }
 
@@ -578,7 +567,7 @@ function InsuranceCard({
                         onClick={(e) => { e.stopPropagation(); onGetQuote(ins.title); }}
                         className={`flex-1 text-center py-2.5 rounded-xl bg-gradient-to-br ${ins.accent} text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-all`}
                       >
-                        Get Quote
+                        Contact advisor
                       </button>
                     ) : (
                       <Link
@@ -586,7 +575,7 @@ function InsuranceCard({
                         onClick={(e) => e.stopPropagation()}
                         className={`flex-1 text-center py-2.5 rounded-xl bg-gradient-to-br ${ins.accent} text-white text-sm font-semibold shadow-sm hover:opacity-90 transition-all`}
                       >
-                        Get Quote
+                        Contact advisor
                       </Link>
                     )}
                     <Link

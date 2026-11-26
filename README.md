@@ -162,7 +162,7 @@ Frontend runs at → **http://localhost:5173**
 **Demo credentials (frontend mock):**
 ```
 User:  demo@smartfinance.in  /  demo1234
-Admin: admin@smartfinance.in /  admin2024
+Configure the administrator allowlist and bootstrap inputs privately as described in [deployment readiness](DEPLOYMENT_READINESS.md).
 ```
 
 ---

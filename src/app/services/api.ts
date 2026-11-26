@@ -17,14 +17,12 @@ function getBaseUrl(): string {
 const BASE = getBaseUrl();
 
 // ── Core fetch wrapper ────────────────────────────────────────────────────────
-async function apiFetch<T = unknown>(
+export async function apiFetch<T = unknown>(
   path: string,
   options: RequestInit = {}
 ): Promise<{ success: boolean; message: string; data: T }> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("sf_token") : null;
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers as Record<string, string>),
   };
 
@@ -35,27 +33,27 @@ async function apiFetch<T = unknown>(
   });
 
   const contentType = res.headers.get("content-type") || "";
-  let json: any = null;
-
-  if (contentType.includes("application/json")) {
-    try {
-      json = await res.json();
-    } catch {
-      json = null;
-    }
-  } else {
+  if (!contentType.includes("application/json")) {
     const rawText = await res.text().catch(() => "");
     if (rawText.includes("<!DOCTYPE") || rawText.includes("<html")) {
       const err: any = new Error(
-        "Backend Connection Error: The request hit the frontend server instead of your Render API. Please verify VITE_API_URL is set in Vercel and redeploy."
+        "Backend Connection Error: The request reached the frontend server instead of the API. Verify VITE_API_URL."
       );
       err.status = res.status;
       throw err;
     }
+    throw new Error("The server returned an unreadable response. Please retry.");
   }
 
+  const json = await res.json().catch(() => {
+    throw new Error("The server returned an unreadable response. Please retry.");
+  });
+
   if (!res.ok) {
-    const err: any = new Error(json?.message || `Request failed (${res.status})`);
+    const validationMessages = Array.isArray(json.errors)
+      ? [...new Set(json.errors.map((item: { msg?: string }) => item.msg).filter(Boolean))].join(" ")
+      : "";
+    const err: any = new Error(validationMessages || json.message || `Request failed (${res.status})`);
     err.status = res.status;
     err.data   = json;
     throw err;

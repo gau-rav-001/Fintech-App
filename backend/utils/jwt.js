@@ -31,7 +31,7 @@ setInterval(() => {
   for (const [jti, exp] of memBlacklist) {
     if (now > exp) memBlacklist.delete(jti);
   }
-}, 15 * 60 * 1000);
+}, 15 * 60 * 1000).unref();
 
 let blacklistAdapter = {
   async add(jti, ttlMs) {

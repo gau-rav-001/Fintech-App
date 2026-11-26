@@ -1,3 +1,4 @@
+import { ConsultationWorkspace } from "../components/ConsultationWorkspace";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
@@ -16,13 +17,13 @@ import { useTheme, type ThemePreference } from "../ThemeContext";
 import {
   type UserProfile, type ExpenseEntry, type FinancialGoalEntry,
   type InvestmentEntry, type LoanEntry,
-  getUserProfile, saveUserProfile, emptyProfile,
+  getUserProfile, persistProfile, emptyProfile,
 } from "../data/userProfile";
-import { syncProfileToFinancialData } from "../data/syncProfile";
+
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 import {
-  userAdvisorAPI,
+  userAPI, userAdvisorAPI,
   type ActiveAdvisorRelationship,
   type UserAdvisorRequest,
 } from "../services/api";
@@ -92,7 +93,7 @@ export function Settings() {
   const [profile, setProfile] = useState<UserProfile>(() => {
     const saved = getUserProfile(user?.id ?? "");
     return saved ?? emptyProfile(user?.id ?? "", {
-      name: user?.name, email: user?.email, mobile: user?.phone,
+      name: user?.fullName, email: user?.email, mobile: user?.mobile,
     });
   });
 
@@ -103,15 +104,16 @@ export function Settings() {
     setTimeout(() => setToast(null), 3000);
   }
 
-  function handleSave() {
-    saveUserProfile(profile);
-    syncProfileToFinancialData(profile);
-    updateUser({
-      name: profile.personal.fullName || user?.name,
-      phone: profile.personal.mobile,
-      avatar: profile.personal.avatarDataUrl,
-    });
-    showToast("Changes saved successfully!");
+  const [savingProfile, setSavingProfile] = useState(false);
+  async function handleSave() {
+    if (savingProfile) return;
+    setSavingProfile(true);
+    try {
+      updateUser(await persistProfile(profile));
+      showToast("Changes saved.");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Unable to save changes.", false);
+    } finally { setSavingProfile(false); }
   }
 
   async function handleLogout() {
@@ -122,6 +124,7 @@ export function Settings() {
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!["image/png","image/jpeg","image/webp"].includes(file.type) || file.size > 262144) { showToast("Choose a PNG, JPEG or WebP image up to 256 KB.", false); return; }
     const reader = new FileReader();
     reader.onload = ev => {
       const url = ev.target?.result as string;
@@ -139,7 +142,7 @@ export function Settings() {
   const patchRisk = useCallback((k: string, v: string | number) =>
     setProfile(p => ({ ...p, riskProfile: { ...p.riskProfile, [k]: v } })), []);
 
-  const initials = (user?.name ?? "U").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+  const initials = (user?.fullName ?? "U").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
 
   // ── Tab content ───────────────────────────────────────────────────────────
 
@@ -613,7 +616,7 @@ export function Settings() {
             </div>
           </div>
           <button
-            onClick={handleSave}
+            disabled={savingProfile} onClick={handleSave}
             className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-primary to-[#2D7A4E] text-white rounded-xl text-sm font-semibold hover:shadow-md hover:scale-105 transition-all"
           >
             <Save className="w-4 h-4" /> Save Changes
@@ -753,22 +756,20 @@ function SecuritySection({ showToast, userId }: { showToast: (m: string, ok?: bo
   const [showCurr, setSC] = useState(false);
   const [showNext, setSN] = useState(false);
 
-  function handleChange() {
+  const [pending, setPending] = useState(false);
+  async function handleChange() {
+    if (pending) return;
     if (!curr) { showToast("Enter your current password", false); return; }
     if (next.length < 8) { showToast("New password must be at least 8 characters", false); return; }
     if (next !== conf) { showToast("Passwords do not match", false); return; }
 
-    // Update in the localStorage users DB
+    setPending(true);
     try {
-      const db = JSON.parse(localStorage.getItem("sf_users_db") || "{}");
-      const userEntry = Object.values(db).find((u: any) => u.id === userId) as any;
-      if (!userEntry) { showToast("User not found", false); return; }
-      if (userEntry.passwordHash !== curr) { showToast("Current password is incorrect", false); return; }
-      db[userEntry.email].passwordHash = next;
-      localStorage.setItem("sf_users_db", JSON.stringify(db));
-      showToast("Password changed successfully!");
+      await userAPI.changePassword({currentPassword: curr, newPassword: next});
       setCurr(""); setNext(""); setConf("");
-    } catch { showToast("Error updating password", false); }
+      showToast("Password changed.");
+    } catch (error) { showToast(error instanceof Error ? error.message : "Password change failed.", false); }
+    finally { setPending(false); }
   }
 
   return (
@@ -803,7 +804,7 @@ function SecuritySection({ showToast, userId }: { showToast: (m: string, ok?: bo
             value={conf} onChange={e => setConf(e.target.value)} placeholder="Re-enter new password" />
         </div>
       </div>
-      <button type="button" onClick={handleChange}
+      <button type="button" disabled={pending} onClick={handleChange}
         className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-primary to-[#2D7A4E] text-white rounded-xl text-sm font-semibold hover:shadow-md transition-all"
       >
         <Save className="w-4 h-4" /> Update Password
@@ -984,6 +985,7 @@ function AdvisorSettingsSection({ showToast }: { showToast: (m: string, ok?: boo
               </div>
 
               {/* Advisor Details Grid */}
+              <ConsultationWorkspace role="user" key={activeRel.relationshipId} relationshipId={activeRel.relationshipId}/>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 {activeRel.advisor.licenseNumber && (
                   <div className="p-3.5 rounded-xl bg-white border border-emerald-200/60 space-y-0.5">

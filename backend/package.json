@@ -4,11 +4,12 @@
   "description": "SmartFinance FinTech Backend — Node.js + Express + PostgreSQL",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node scripts/start.js",
     "start:init": "node scripts/start.js",
-    "dev": "nodemon server.js",
-    "db:migrate": "node db/migrate.js",
-    "db:seed": "node db/seed.js"
+    "dev": "nodemon scripts/start.js",
+    "db:migrate": "node db/run.js",
+    "db:seed": "node db/seed.js",
+    "test": "node --test tests/*.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

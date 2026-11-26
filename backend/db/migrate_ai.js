@@ -2,24 +2,44 @@
 // Creates AI-related tables for SmartFinance AI Wealth Assistant.
 // Safe to re-run (uses IF NOT EXISTS).
 
-require("../config/env").loadEnv();
-const db = require("../config/db");
 
 const SQL = `
 
 -- ── ENUM types for AI tables ─────────────────────────────────────────────────
 DO $$ BEGIN
   CREATE TYPE income_frequency       AS ENUM ('monthly','quarterly','annual','one_time');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE expense_frequency      AS ENUM ('daily','weekly','monthly','quarterly','annual','one_time');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE loan_type_enum         AS ENUM ('home','car','personal','education','credit_card','other');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE loan_status            AS ENUM ('active','paid_off','foreclosed');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE investment_type_enum   AS ENUM ('mutual_fund','stock','bond','ppf','nps','real_estate','gold','crypto','fd','other');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE sip_status             AS ENUM ('active','paused','stopped','completed');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE asset_type_enum        AS ENUM ('savings_account','fd','ppf','nps','real_estate','gold','vehicle','other');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE goal_category_enum     AS ENUM ('retirement','home','education','wealth','emergency','travel','wedding','other');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE goal_status            AS ENUM ('planning','active','achieved','abandoned');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE alert_type_enum        AS ENUM ('savings_warning','goal_deadline','investment_rebalance','tax_saving','debt_warning','milestone','emergency_fund','other');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE alert_priority         AS ENUM ('low','medium','high','critical');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE message_role           AS ENUM ('user','assistant','system');
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
@@ -452,32 +472,19 @@ EXCEPTION WHEN duplicate_object THEN null; END $$;
 `;
 
 async function migrate() {
-  console.log("🔄 Running AI database migrations...");
+  const db = require("../config/db");
   try {
-    await db.query(SQL);
-    console.log("✅ All AI tables created / verified successfully.\n");
-    console.log("  New Tables:");
-    console.log("    financial_profiles       — computed financial snapshot");
-    console.log("    income_records           — income tracking (recurring + one-time)");
-    console.log("    expense_records          — expense tracking (recurring + one-time)");
-    console.log("    loans                    — loan management");
-    console.log("    investments              — investment portfolio");
-    console.log("    sips                     — SIP tracking");
-    console.log("    assets                   — non-investment assets (savings, FD, gold, etc.)");
-    console.log("    goals                    — financial goals");
-    console.log("    retirement_plans         — retirement planning");
-    console.log("    financial_health_scores  — health score tracking");
-    console.log("    alerts                   — smart alerts & notifications");
-    console.log("    ai_conversations         — AI chat conversations");
-    console.log("    ai_messages              — AI chat messages");
-    console.log("\n📊 Total: 13 new tables with proper relationships, indexes, and validations.");
-    console.log("\nNext: Create model files for each table.\n");
-  } catch (err) {
-    console.error("❌ AI migration failed:", err.message);
-    console.error(err);
+    await db.transaction(client => client.query(SQL));
   } finally {
     await db.pool.end();
   }
 }
 
-migrate();
+if (require.main === module) {
+  migrate().catch(error => {
+    console.error("Migration failed", error.code || error.name);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { migrate, SQL };
