@@ -1,6 +1,7 @@
 // ── Financial Intelligence Engine ─────────────────────────────────────────────
 // Core calculation services for financial metrics and insights
 
+const { calculateSIPFutureValue, calculateRequiredSIP } = require("./financialUtils");
 const FinancialProfile = require("../models/FinancialProfile");
 const Income = require("../models/Income");
 const Expense = require("../models/Expense");
@@ -91,17 +92,9 @@ async function getProfile(userId) {
       const monthlySavings = totalMonthlyIncome - totalMonthlyExpense - monthlyEmiAmount;
       const savingsRatePct = totalMonthlyIncome > 0 ? (monthlySavings / totalMonthlyIncome) * 100 : 0;
 
-      let monthlySipAmount = investments
+      const monthlySipAmount = investments
         .filter((inv) => inv.isSIP || inv.frequency === "monthly")
         .reduce((sum, inv) => sum + (parseFloat(inv.amount) || 0), 0);
-      if (monthlySipAmount === 0) {
-        monthlySipAmount = investments
-          .filter((inv) => normalizeInvestmentType(inv.type || inv.investmentType) === "mutual_fund")
-          .reduce((sum, inv) => {
-            const duration = Math.max(1, parseFloat(inv.durationMonths) || 0);
-            return sum + ((parseFloat(inv.investedAmount) || 0) / duration);
-          }, 0);
-      }
 
       userSnapshot = {
         totalAssets,
@@ -147,17 +140,6 @@ async function getProfile(userId) {
     if (process.env.DEBUG_AI === "true") console.error("[getProfile] FinancialProfile lookup failed:", err.message);
   }
 
-  if (process.env.DEBUG_AI === "true") {
-    console.log(`[getProfile] userId=${userId} → source=${userSnapshot?._source || "none"}`,
-      userSnapshot ? {
-        income: userSnapshot.totalMonthlyIncome,
-        expense: userSnapshot.totalMonthlyExpense,
-        savings: userSnapshot.monthlySavings,
-        savingsRate: userSnapshot.savingsRatePct,
-        netWorth: userSnapshot.netWorth,
-        invested: userSnapshot.totalInvestmentValue,
-      } : null);
-  }
 
   return userSnapshot;
 }
@@ -366,6 +348,7 @@ async function calculateGoalProgress(userId) {
     const targetAmount = parseFloat(goal.targetAmount) || 0;
     const currentAmount = parseFloat(goal.currentAmount) || 0;
     const monthlyContribution = parseFloat(goal.monthlyContribution) || 0;
+    const gap = Math.max(0, targetAmount - currentAmount);
     const progress = targetAmount > 0 ? (currentAmount / targetAmount) * 100 : 0;
     let monthsRemaining = null;
     let monthlyNeeded = null;
@@ -376,11 +359,11 @@ async function calculateGoalProgress(userId) {
       const today = new Date();
       const target = new Date(goal.targetDate);
       monthsRemaining = Math.max(0, (target - today) / (30 * 24 * 60 * 60 * 1000));
-      monthlyNeeded = monthsRemaining > 0 ? gap / monthsRemaining : 0;
-      onTrack = monthlyContribution >= monthlyNeeded;
+      monthlyNeeded = monthsRemaining > 0 ? gap / monthsRemaining : null;
+      onTrack = gap === 0 || (monthlyNeeded !== null && monthlyContribution >= monthlyNeeded);
       status = progress >= 100
           ? "achieved"
-          : monthlyContribution >= monthlyNeeded
+          : onTrack
           ? "on_track"
           : "behind";
     } else {
@@ -492,14 +475,14 @@ async function calculateRetirementCorpus(userId, params = {}) {
     return { error: "No retirement plan found. Create one first." };
   }
 
-  const currentAge = params.currentAge || plan.currentAge;
-  const retirementAge = params.retirementAge || plan.retirementAge;
-  const lifeExpectancy = params.lifeExpectancy || plan.lifeExpectancy;
-  const currentCorpus = params.currentCorpus || plan.currentCorpus;
-  const monthlyContribution = params.monthlyContribution || plan.monthlyContribution;
-  const expectedReturn = params.expectedReturnPct || plan.expectedReturnPct;
-  const inflation = params.inflationPct || plan.inflationPct;
-  const monthlyExpense = params.monthlyExpensePostRetirement || plan.monthlyExpensePostRetirement;
+  const currentAge = params.currentAge ?? plan.currentAge;
+  const retirementAge = params.retirementAge ?? plan.retirementAge;
+  const lifeExpectancy = params.lifeExpectancy ?? plan.lifeExpectancy;
+  const currentCorpus = params.currentCorpus ?? plan.currentCorpus;
+  const monthlyContribution = params.monthlyContribution ?? plan.monthlyContribution;
+  const expectedReturn = params.expectedReturnPct ?? plan.expectedReturnPct;
+  const inflation = params.inflationPct ?? plan.inflationPct;
+  const monthlyExpense = params.monthlyExpensePostRetirement ?? plan.monthlyExpensePostRetirement;
 
   const yearsToRetirement = retirementAge - currentAge;
   const yearsInRetirement = lifeExpectancy - retirementAge;
@@ -513,24 +496,28 @@ async function calculateRetirementCorpus(userId, params = {}) {
     currentCorpus * Math.pow(1 + expectedReturn / 100, yearsToRetirement);
 
   // Future value of monthly contributions (annuity)
-  const monthlyRate = expectedReturn / 100 / 12;
-  const months = yearsToRetirement * 12;
-  const fvContributions =
-    monthlyContribution * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
-
+  if (!(yearsInRetirement > 0 && lifeExpectancy <= 130 && currentAge >= 0 &&
+      expectedReturn >= 0 && expectedReturn <= 100 && inflation >= 0 && inflation <= 100 &&
+      currentCorpus >= 0 && monthlyContribution >= 0 && monthlyExpense >= 0)) {
+    return { error: "Review the ages, rates and amounts in the retirement plan." };
+  }
+  const fvContributions = calculateSIPFutureValue(monthlyContribution, expectedReturn, yearsToRetirement);
   const projectedCorpus = fvCurrentCorpus + fvContributions;
 
   // Required corpus (considering inflation)
   const inflationAdjustedExpense =
     monthlyExpense * Math.pow(1 + inflation / 100, yearsToRetirement);
-  const requiredCorpus = (inflationAdjustedExpense * 12 * yearsInRetirement) / (1 + expectedReturn / 100 - inflation / 100);
+  // First annual withdrawal is due at retirement. Later withdrawals rise with inflation.
+  const ratio = (1 + inflation / 100) / (1 + expectedReturn / 100);
+  const annuityFactor = ratio === 1 ? yearsInRetirement : Math.expm1(yearsInRetirement * Math.log(ratio)) / (ratio - 1);
+  const requiredCorpus = inflationAdjustedExpense * 12 * annuityFactor;
 
   const corpusGap = requiredCorpus - projectedCorpus;
 
   // Additional monthly SIP needed to close gap
   const additionalSIPNeeded =
-    corpusGap > 0 && months > 0
-      ? (corpusGap * monthlyRate) / (Math.pow(1 + monthlyRate, months) - 1)
+    corpusGap > 0
+      ? calculateRequiredSIP(corpusGap, yearsToRetirement, expectedReturn)
       : 0;
 
   return {
@@ -715,27 +702,26 @@ async function calculateFinancialHealthScore(userId) {
 
   // Component scores (0-100 each)
   const scores = {
-    netWorth: Math.min(100, (netWorthData.netWorth / 10000000) * 100), // 1Cr = 100
-    savingsRate: Math.min(100, budgetData.savingsRate * 3.33), // 30% = 100
+    netWorth: Math.max(0, Math.min(100, (netWorthData.netWorth / 10000000) * 100)), // 1Cr = 100
+    savingsRate: Math.max(0, Math.min(100, budgetData.savingsRate * 3.33)), // 30% = 100
     debt: Math.max(0, 100 - debtData.ratio * 2), // 0% = 100, 50% = 0
     investment: Math.min(100, (investmentData.totalValue / 5000000) * 100), // 50L = 100
     emergencyFund: Math.min(100, emergencyData.coverageMonths * 16.67), // 6mo = 100
-    insurance: 50, // Placeholder (needs insurance data)
+    insurance: null, // Coverage data is unavailable. Exclude from weighting.
     goalProgress:
       goalData.length > 0
         ? goalData.reduce((sum, g) => sum + Math.min(100, g.progress), 0) / goalData.length
-        : 50,
+        : null,
   };
 
   // Overall score (weighted average)
-  const overallScore =
+  const overallScore = (
     scores.netWorth * 0.25 +
     scores.savingsRate * 0.2 +
     scores.debt * 0.2 +
     scores.investment * 0.15 +
     scores.emergencyFund * 0.1 +
-    scores.insurance * 0.05 +
-    scores.goalProgress * 0.05;
+    (scores.goalProgress ?? 0) * 0.05) / (goalData.length ? 0.95 : 0.90);
 
   // Strengths and weaknesses
   const strengths = [];
@@ -780,8 +766,8 @@ async function calculateFinancialHealthScore(userId) {
       debtScore: parseFloat(scores.debt.toFixed(2)),
       investmentScore: parseFloat(scores.investment.toFixed(2)),
       emergencyFundScore: parseFloat(scores.emergencyFund.toFixed(2)),
-      insuranceScore: parseFloat(scores.insurance.toFixed(2)),
-      goalProgressScore: parseFloat(scores.goalProgress.toFixed(2)),
+      insuranceScore: null,
+      goalProgressScore: scores.goalProgress === null ? null : Number(scores.goalProgress.toFixed(2)),
     },
     strengths,
     weaknesses,

@@ -25,7 +25,7 @@ import { AIAssistant } from "../components/AIAssistant";
 
 export function Home() {
   const { t } = useLanguage();
-  const { isAuthenticated } = useAuth();
+  const { isUserAuthenticated: isAuthenticated } = useAuth();
   const ctaTarget = isAuthenticated ? "/dashboard" : "/signup";
   const home = t.home;
 

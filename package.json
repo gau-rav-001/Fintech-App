@@ -6,6 +6,7 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
+    "test": "npm --prefix backend test",
     "dev:backend": "cd backend && npm run dev",
     "dev:all": "concurrently --names \"FRONT,BACK\" --prefix-colors \"cyan,green\" \"npm run dev\" \"npm run dev:backend\"",
     "docker:up": "docker compose up -d",

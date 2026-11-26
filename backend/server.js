@@ -1,11 +1,7 @@
 // backend/server.js
 require("./config/env").loadEnv();
 
-console.log({
-  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ? "Loaded" : "Missing",
-  GOOGLE_CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL,
-});
+require("./config/env").validateProduction();
 
 const express      = require("express");
 const cors         = require("cors");
@@ -14,16 +10,18 @@ const cookieParser = require("cookie-parser");
 const rateLimit    = require("express-rate-limit");
 const passport     = require("passport");
 
-require("./config/db");
+const db = require("./config/db");
+const { schemaReady } = require("./db/run");
 require("./config/passport");
 
 // ── Optional Redis wiring (Fix #2) ───────────────────────────────────────────
 // If REDIS_URL is set, plug in Redis adapters for OTP store and JWT blacklist.
 // Remove the if-block to force in-memory (dev only).
+let redis;
 if (process.env.REDIS_URL) {
-  try {
     const Redis = require("ioredis");
-    const redis = new Redis(process.env.REDIS_URL);
+    redis = new Redis(process.env.REDIS_URL, { password: process.env.REDIS_PASSWORD || undefined, enableOfflineQueue: false, maxRetriesPerRequest: 1, commandTimeout: 2500 });
+    redis.on("error", () => console.error("Redis unavailable"));
 
     const { setAdapter }         = require("./utils/otp");
     const { setBlacklistAdapter } = require("./utils/jwt");
@@ -44,10 +42,6 @@ if (process.env.REDIS_URL) {
       async has(jti) { return (await redis.exists(`bl:${jti}`)) === 1; },
     });
 
-    console.log("✅ Redis connected — OTP store and JWT blacklist are persistent.");
-  } catch (e) {
-    console.error("⚠️  REDIS_URL set but ioredis failed to connect:", e.message);
-  }
 } else {
   console.warn("⚠️  REDIS_URL not set — using in-memory OTP/JWT store (single-instance / dev only).");
 }
@@ -63,6 +57,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const { errorHandler, notFound } = require("./middleware/errorHandler");
 
 const app    = express();
+if (process.env.TRUSTED_PROXY_IP) app.set("trust proxy", process.env.TRUSTED_PROXY_IP);
 const isProd = process.env.NODE_ENV === "production";
 
 // ── Security headers ──────────────────────────────────────────────────────────
@@ -87,7 +82,7 @@ app.use(cors({
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max:      300,
+  max:      isProd ? 300 : 5000,
   standardHeaders: true,
   legacyHeaders:   false,
   message: { success: false, message: "Too many requests. Try again in 15 minutes." },
@@ -95,27 +90,29 @@ const globalLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max:      20,
+  max:      isProd ? 20 : 1000,
   standardHeaders: true,
   legacyHeaders:   false,
   message: { success: false, message: "Too many auth attempts. Try again in 15 minutes." },
 });
 
-app.use(globalLimiter);
-
-// ── Body parsers ──────────────────────────────────────────────────────────────
-app.use(express.json({ limit: "2mb" }));
-app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser());
-
-// ── Passport ──────────────────────────────────────────────────────────────────
-app.use(passport.initialize());
-
-// ── Health check (Fix #10) ───────────────────────────────────────────────────
-// Removed NODE_ENV and internal service details — only expose liveness status
-app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
+app.get(["/health", "/api/health"], (_req, res) => res.json({ status: "ok" }));
+app.get(["/ready", "/api/ready"], async (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  try {
+    if (redis && await redis.ping() !== "PONG") throw new Error();
+    if (!(await schemaReady(db))) throw new Error();
+    res.json({ status: "ready" });
+  } catch {
+    res.status(503).json({ status: "unavailable" });
+  }
 });
+
+app.use(globalLimiter);
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: false, limit: "128kb", parameterLimit: 128 }));
+app.use(cookieParser());
+app.use(passport.initialize());
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use("/api/auth",         authLimiter, authRoutes);

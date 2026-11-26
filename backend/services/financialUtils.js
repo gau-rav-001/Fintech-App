@@ -11,17 +11,16 @@ function calculateFutureValue(principal, annualRate, years) {
 function calculateSIPFutureValue(monthlyAmount, annualRate, years) {
   const monthlyRate = annualRate / 100 / 12;
   const months = years * 12;
-  return monthlyAmount * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
+  return monthlyRate === 0 ? monthlyAmount * months
+    : monthlyAmount * Math.expm1(months * Math.log1p(monthlyRate)) / monthlyRate;
 }
 
 // ── EMI Calculator ────────────────────────────────────────────────────────────
 // EMI = [P × r × (1 + r)^n] / [(1 + r)^n - 1]
 function calculateEMI(principal, annualRate, tenureMonths) {
   const monthlyRate = annualRate / 100 / 12;
-  const emi =
-    (principal * monthlyRate * Math.pow(1 + monthlyRate, tenureMonths)) /
-    (Math.pow(1 + monthlyRate, tenureMonths) - 1);
-  return emi;
+  if (monthlyRate === 0) return principal / tenureMonths;
+  return principal * monthlyRate / -Math.expm1(-tenureMonths * Math.log1p(monthlyRate));
 }
 
 // ── Present Value (PV) ────────────────────────────────────────────────────────
@@ -107,10 +106,7 @@ function ruleOf72(annualRate) {
 
 // ── Required Monthly SIP to reach goal ────────────────────────────────────────
 function calculateRequiredSIP(targetAmount, years, annualRate) {
-  const monthlyRate = annualRate / 100 / 12;
-  const months = years * 12;
-  const requiredSIP = (targetAmount * monthlyRate) / (Math.pow(1 + monthlyRate, months) - 1);
-  return requiredSIP;
+  return targetAmount / calculateSIPFutureValue(1, annualRate, years);
 }
 
 // ── Portfolio Weighted Average Return ─────────────────────────────────────────

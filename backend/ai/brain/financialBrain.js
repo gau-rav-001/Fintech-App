@@ -1,48 +1,8 @@
 // ── SmartFinance High-Speed Offline Financial Brain & LRU Response Cache ─────
 "use strict";
 
-// ── In-Memory LRU Cache with TTL ──────────────────────────────────────────────
-class ResponseCache {
-  constructor(maxSize = 500, ttlMs = 1000 * 60 * 60) {
-    this.maxSize = maxSize;
-    this.ttlMs = ttlMs;
-    this.cache = new Map();
-  }
-
-  get(key) {
-    const item = this.cache.get(key);
-    if (!item) return null;
-    if (Date.now() > item.expiry) {
-      this.cache.delete(key);
-      return null;
-    }
-    // Refresh LRU order
-    this.cache.delete(key);
-    this.cache.set(key, item);
-    return item.value;
-  }
-
-  set(key, value) {
-    if (this.cache.size >= this.maxSize) {
-      const oldestKey = this.cache.keys().next().value;
-      this.cache.delete(oldestKey);
-    }
-    this.cache.set(key, {
-      value,
-      expiry: Date.now() + this.ttlMs,
-    });
-  }
-
-  normalizeKey(query) {
-    return String(query || "")
-      .toLowerCase()
-      .trim()
-      .replace(/[^\w\s%₹]/g, "")
-      .replace(/\s+/g, " ");
-  }
-}
-
-const queryCache = new ResponseCache(1000, 1000 * 60 * 60 * 2); // 2 hours TTL
+const { parseRupees } = require("../../services/financialAmount");
+const { calculateEMI, calculateSIPFutureValue, calculateRequiredSIP } = require("../../services/financialUtils");
 
 // ── Currency & Percentage Formatters ─────────────────────────────────────────
 function fmtInr(val) {
@@ -56,236 +16,73 @@ function fmtInr(val) {
 function solveFinancialMath(query = "") {
   const q = String(query).toLowerCase().trim();
 
-  // 1. Reverse Goal SIP Calculator: English & Hinglish
-  // e.g., "reach 1 cr in 10 years at 12%", "how to get 50 lakhs in 7 years at 14%", "10 saal me 50 lakh banane ke liye kitna sip chahiye"
-  const revSipMatch = q.match(/(?:reach|get|accumulate|target|save|build|make|banane ke liye|kitna sip)\s*(?:₹|rs\.?\s*)?(\d+(?:\.\d+)?)\s*(cr|crore|lakhs?|lac|k)?\s*(?:in|for|me|mein)?\s*(\d+(?:\.\d+)?)\s*(?:years?|yrs?|saal|sal)?\s*(?:at|@)?\s*(\d+(?:\.\d+)?)\s*%?/i) ||
-                      q.match(/(?:in|for|me|mein)?\s*(\d+(?:\.\d+)?)\s*(?:years?|yrs?|saal|sal)\s*(?:me|mein)?\s*(?:₹|rs\.?\s*)?(\d+(?:\.\d+)?)\s*(cr|crore|lakhs?|lac|k)\s*(?:banane|reach|get|save)?/i) ||
-                      q.match(/sip\s*(?:needed|required)?\s*(?:for|to get|to reach)?\s*(?:₹|rs\.?\s*)?(\d+(?:\.\d+)?)\s*(cr|crore|lakhs?|lac|k)?\s*(?:in|for|me)?\s*(\d+(?:\.\d+)?)\s*(?:years?|yrs?|saal)?\s*(?:at|@)?\s*(\d+(?:\.\d+)?)\s*%?/i);
-  if (revSipMatch) {
-    let target = 0;
-    let nYears = 0;
-    let r = 12;
+  // Capture the entire candidate, including malformed decimals/grouping, and
+  // validate it once. Boundaries prevent matching a numeric prefix as rupees.
+  const amount = String.raw`((?:₹\s*|rs\.?\s*)?[\d,.]+(?:\s*(?:crores?|cr|lakhs?|lac|l|k))?)(?![\w.,])`;
+  const years = String.raw`(\d+(?:\.\d+)?)\s*(?:years?|yrs?|saal|sal)`;
+  const rate = String.raw`(\d+(?:\.\d+)?)\s*%`;
+  const match = pattern => new RegExp(pattern, "i").exec(q);
+  const validPeriod = (y, r) => y > 0 && y <= 100 && Number.isInteger(y * 12) && r >= 0 && r <= 100;
 
-    if (q.includes("saal") && /^\s*(?:in|for|me|mein)?\s*\d+\s*(?:years?|yrs?|saal)/i.test(q)) {
-      nYears = parseFloat(revSipMatch[1]);
-      target = parseFloat(revSipMatch[2]);
-      const unit = (revSipMatch[3] || "").toLowerCase();
-      if (unit.startsWith("cr")) target *= 10_000_000;
-      else if (unit.startsWith("lac") || unit.startsWith("lakh")) target *= 100_000;
-      else if (unit.startsWith("k")) target *= 1_000;
-      else if (target <= 100) target *= 100_000;
-    } else {
-      target = parseFloat(revSipMatch[1]);
-      const unit = (revSipMatch[2] || "").toLowerCase();
-      if (unit.startsWith("cr")) target *= 10_000_000;
-      else if (unit.startsWith("lac") || unit.startsWith("lakh")) target *= 100_000;
-      else if (unit.startsWith("k")) target *= 1_000;
-      else if (target <= 100) target *= 100_000;
-
-      nYears = parseFloat(revSipMatch[3]);
-      r = parseFloat(revSipMatch[4] || "12");
-    }
-
-    if (target > 0 && nYears > 0 && r > 0) {
-      const i = r / (12 * 100);
-      const nMonths = nYears * 12;
-      const monthlySIP = (target * i) / ((Math.pow(1 + i, nMonths) - 1) * (1 + i));
-      const totalInvested = monthlySIP * nMonths;
-      const wealthGained = target - totalInvested;
-
-      return `### 🎯 Goal Wealth Planner: Target ${fmtInr(target)}
-
-To build **${fmtInr(target)}** in **${nYears} Years** at an expected return of **${r}% p.a.**:
-
----
-
-| Metric | Details |
-|---|---|
-| **Required Monthly SIP** | **${fmtInr(monthlySIP)} / month** |
-| **Total Horizon** | **${nYears} Years** (${nMonths} installments) |
-| **Total Amount You Invest** | **${fmtInr(totalInvested)}** |
-| **Estimated Compounded Growth** | **${fmtInr(wealthGained)}** (${Math.round((wealthGained/target)*100)}% of corpus) |
-
----
-
-### 💡 Recommended Portfolio Mix:
-• **70% Equity Funds** (Flexi-cap / Large & Mid-cap for compounding growth)
-• **20% Mid & Small Cap** (For alpha generation over ${nYears}+ years)
-• **10% Debt / Arbitrage** (Emergency buffer & rebalancing)
-
-🚀 *Tip: Start with **${fmtInr(monthlySIP)}/mo** and increase your SIP by **10% every year** (Step-Up SIP) to reach your goal **2.5 years earlier**!*`;
-    }
+  const budget = match(String.raw`(?:budget|allocate|split|50\/30\/20|rule)\s*(?:for\s*)?${amount}`);
+  if (budget) {
+    const income = parseRupees(budget[1]);
+    if (income === null || income <= 0) return null;
+    const paise = Math.round(income * 100);
+    const needs = Math.round(paise * 0.5);
+    const wants = Math.round(paise * 0.3);
+    const savings = paise - needs - wants;
+    const monthly = value => "₹" + (value / 100).toLocaleString("en-IN", {maximumFractionDigits: 2}) + "/month";
+    return "### 50/30/20 monthly budget\n\n" +
+      "**Needs (50%)** " + monthly(needs) + "\n\n**Wants (30%)** " + monthly(wants) +
+      "\n\n**Savings (20%)** " + monthly(savings) + "\n\nIllustrative allocation of monthly take-home income.";
   }
 
-  // 2. Inflation & Purchasing Power Calculator: "1 cr in 20 years at 6% inflation" or "purchasing power of 50 lakhs in 15 years"
-  const infMatch = q.match(/(?:purchasing power of|value of|worth of)?\s*(?:₹|rs\.?\s*)?(\d+(?:\.\d+)?)\s*(cr|crore|lakhs?|lac)?\s*(?:in|after)?\s*(\d+(?:\.\d+)?)\s*(?:years?|yrs?)\s*(?:at|with)?\s*(\d+(?:\.\d+)?)\s*%\s*inflation/i) ||
-                   q.match(/inflation\s*(?:of)?\s*(\d+(?:\.\d+)?)\s*%\s*(?:on)?\s*(?:₹|rs\.?\s*)?(\d+(?:\.\d+)?)\s*(cr|crore|lakhs?|lac)?\s*(?:for|in)?\s*(\d+(?:\.\d+)?)\s*(?:years?|yrs?)/i);
-  if (infMatch) {
-    let amount = parseFloat(infMatch[1]);
-    let unit = (infMatch[2] || "").toLowerCase();
-    let nYears, infRate;
-
-    if (q.startsWith("inflation")) {
-      infRate = parseFloat(infMatch[1]);
-      amount = parseFloat(infMatch[2]);
-      unit = (infMatch[3] || "").toLowerCase();
-      nYears = parseFloat(infMatch[4]);
-    } else {
-      nYears = parseFloat(infMatch[3]);
-      infRate = parseFloat(infMatch[4] || "6");
-    }
-
-    if (unit.startsWith("cr")) amount *= 10_000_000;
-    else if (unit.startsWith("lac") || unit.startsWith("lakh")) amount *= 100_000;
-    else if (amount <= 100) amount *= 100_000;
-
-    if (amount > 0 && nYears > 0 && infRate > 0) {
-      // Purchasing power: PV = FV / (1 + r)^n
-      const realValue = amount / Math.pow(1 + infRate / 100, nYears);
-      const futureEquivalent = amount * Math.pow(1 + infRate / 100, nYears);
-
-      return `### 📉 Inflation & Purchasing Power Analysis
-
-• **Base Amount**: ${fmtInr(amount)}
-• **Time Frame**: ${nYears} Years
-• **Assumed Inflation**: ${infRate}% p.a.
-
----
-
-| Scenario | Value | Explanation |
-|---|---|---|
-| **Future Purchasing Power** | **${fmtInr(realValue)}** | In ${nYears} years, **${fmtInr(amount)}** will buy what **${fmtInr(realValue)}** buys today. |
-| **Target for Same Lifestyle** | **${fmtInr(futureEquivalent)}** | You will need **${fmtInr(futureEquivalent)}** in ${nYears} years to match today's **${fmtInr(amount)}** standard of living. |
-
-💡 *To prevent wealth erosion from ${infRate}% inflation, ensure your long-term investments target at least **11% - 13% CAGR** via diversified equity mutual funds.*`;
-    }
+  const percent = match(String.raw`(?<![\d.\-])${rate}\s+of\s+${amount}`);
+  if (percent) {
+    const total = parseRupees(percent[2]);
+    if (total === null || Number(percent[1]) > 10000) return null;
+    return "### Percentage calculation\n\n" + percent[1] + "% of " + fmtInr(total) + " = " + fmtInr(total * Number(percent[1]) / 100);
   }
 
-  // 3. 50/30/20 Salary Budget Allocator: "budget for 1 lakh salary" or "50 30 20 rule for 75000"
-  const budgetMatch = q.match(/(?:budget|allocate|split|50\/?30\/?20|rule)\s*(?:for)?\s*(?:₹|rs\.?\s*)?(\d[\d,]*|\d+(?:\.\d+)?)\s*(cr|crore|lakhs?|lac|k)?\s*(?:salary|income|per month|monthly)?/i);
-  if (budgetMatch && (q.includes("budget") || q.includes("salary") || q.includes("50") || q.includes("allocate"))) {
-    let income = parseFloat(budgetMatch[1].replace(/,/g, ""));
-    const unit = (budgetMatch[2] || "").toLowerCase();
-    if (unit.startsWith("cr")) income *= 10_000_000;
-    else if (unit.startsWith("lac") || unit.startsWith("lakh")) income *= 100_000;
-    else if (unit.startsWith("k")) income *= 1_000;
-    else if (income < 500 && income > 0) income *= 100_000;
-
-    if (income >= 5000) {
-      const needs = income * 0.50;
-      const wants = income * 0.30;
-      const savings = income * 0.20;
-
-      return `### 🪙 50/30/20 Smart Monthly Budget Breakdown (Income: ${fmtInr(income)}/mo)
-
----
-
-### 1. 🏠 Needs — 50% (${fmtInr(needs)}/month)
-*Essential survival & obligations:*
-• Rent / Home Loan EMI & Maintenance
-• Groceries, utilities, bills & broadband
-• Commute, fuel, term & health insurance premiums
-
-### 2. 🍿 Wants — 30% (${fmtInr(wants)}/month)
-*Lifestyle & personal fulfillment:*
-• Dining out, food delivery & cafes
-• Shopping, gadgets & entertainment/OTT
-• Weekend getaways & leisure hobbies
-
-### 3. 🚀 Wealth Builder & Savings — 20% (${fmtInr(savings)}/month minimum)
-*Future freedom & security:*
-• **Emergency Fund**: Maintain 6 months of expenses in Liquid Funds
-• **Monthly SIPs**: Direct Index/Flexi-cap equity mutual funds
-• **Retirement & Tax**: PPF / NPS / ELSS
-
-💡 *Pro Tip: If you can live on 40% needs, boost your **Wealth Builder** to 30-40% to achieve financial independence 8-10 years earlier!*`;
-    }
+  const targetFirst = match(String.raw`(?:reach|get|accumulate|target|save|build|make|sip required for|sip needed for)\s+${amount}\s+(?:in|for)\s+${years}\s+(?:at|@)\s*${rate}`);
+  const timeFirst = match(String.raw`${years}\s+(?:me|mein|to reach)\s+${amount}.*?(?:at|@)\s*${rate}`);
+  if (targetFirst || timeFirst) {
+    const target = parseRupees(targetFirst?.[1] ?? timeFirst[2]);
+    const y = Number(targetFirst?.[2] ?? timeFirst[1]);
+    const r = Number((targetFirst || timeFirst)[3]);
+    if (!target || !validPeriod(y, r)) return null;
+    return "### Goal SIP projection\n\nTarget " + fmtInr(target) + " in " + y + " years at an assumed " + r + "% annual return. Required monthly SIP: **" +
+      fmtInr(calculateRequiredSIP(target, y, r)) + "**. Contributions are made at month end. Returns can vary.";
   }
 
-  // 4. SIP Compounding Calculator: "SIP 5000 12% 10 years" or "SIP of 10000 for 15 yrs at 14%"
-  const sipMatch = q.match(/sip\s*(?:of)?\s*(?:₹|rs\.?\s*)?(\d[\d,]*)\s*(?:for|in)?\s*(\d+(?:\.\d+)?)\s*(?:years?|yrs?)\s*(?:at|@)?\s*(\d+(?:\.\d+)?)\s*%?/i) ||
-                   q.match(/sip\s*(?:of)?\s*(?:₹|rs\.?\s*)?(\d[\d,]*)\s*(?:at|@)?\s*(\d+(?:\.\d+)?)\s*%\s*(?:for)?\s*(\d+(?:\.\d+)?)\s*(?:years?|yrs?)/i);
-  if (sipMatch) {
-    let p, nYears, r;
-    if (q.includes("year") && q.indexOf("year") < q.indexOf("%")) {
-      p = parseFloat(sipMatch[1].replace(/,/g, ""));
-      nYears = parseFloat(sipMatch[2]);
-      r = parseFloat(sipMatch[3]);
-    } else {
-      p = parseFloat(sipMatch[1].replace(/,/g, ""));
-      r = parseFloat(sipMatch[2]);
-      nYears = parseFloat(sipMatch[3]);
-    }
-
-    if (p > 0 && nYears > 0 && r > 0) {
-      const i = r / (12 * 100);
-      const nMonths = nYears * 12;
-      const totalInvested = p * nMonths;
-      const maturity = p * ((Math.pow(1 + i, nMonths) - 1) / i) * (1 + i);
-      const wealthGained = maturity - totalInvested;
-
-      return `### 📈 SIP Compounding Simulation
-
-• **Monthly SIP**: ${fmtInr(p)}
-• **Time Horizon**: ${nYears} Years (${nMonths} months)
-• **Expected Annual Return**: ${r}% p.a.
-
----
-
-| Metric | Amount |
-|---|---|
-| **Total Invested** | **${fmtInr(totalInvested)}** |
-| **Est. Wealth Gained** | **${fmtInr(wealthGained)}** |
-| **Total Maturity Value** | **${fmtInr(maturity)}** |
-
-💡 *Compounding multiplies your returns over longer horizons. Try our interactive **SIP & Lumpsum Calculator** in the Calculators tab!*`;
-    }
+  const inf = match(String.raw`${amount}\s+(?:in|after)\s+${years}\s+(?:at|with)\s+${rate}\s+inflation`);
+  const reversedInf = match(String.raw`inflation\s+(?:of\s+)?${rate}\s+(?:on\s+)?${amount}\s+(?:for|in)\s+${years}`);
+  if (inf || reversedInf) {
+    const principal = parseRupees(inf?.[1] ?? reversedInf[2]);
+    const y = Number(inf?.[2] ?? reversedInf[3]);
+    const r = Number(inf?.[3] ?? reversedInf[1]);
+    if (!principal || !validPeriod(y, r)) return null;
+    const factor = (1 + r / 100) ** y;
+    return "### Purchasing power\n\nAt " + r + "% assumed annual inflation over " + y + " years, " + fmtInr(principal) +
+      " would buy the equivalent of " + fmtInr(principal / factor) + " today. The same basket would cost " + fmtInr(principal * factor) + ".";
   }
 
-  // 5. Loan EMI Calculator: "EMI of 50 lakhs at 8.5% for 20 years"
-  const emiMatch = q.match(/emi\s*(?:of|for)?\s*(?:₹|rs\.?\s*)?(\d+(?:\.\d+)?)\s*(?:lakhs?|lac|cr|crore)?\s*(?:at|@)?\s*(\d+(?:\.\d+)?)\s*%\s*(?:for)?\s*(\d+(?:\.\d+)?)\s*(?:years?|yrs?)/i);
-  if (emiMatch) {
-    let p = parseFloat(emiMatch[1]);
-    if (/cr|crore/i.test(q)) p = p * 10_000_000;
-    else if (/lakh|lac/i.test(q)) p = p * 100_000;
-    else if (p < 1000) p = p * 100_000;
-
-    const r = parseFloat(emiMatch[2]);
-    const nYears = parseFloat(emiMatch[3]);
-
-    if (p > 0 && r > 0 && nYears > 0) {
-      const monthlyRate = r / (12 * 100);
-      const nMonths = nYears * 12;
-      const emi = (p * monthlyRate * Math.pow(1 + monthlyRate, nMonths)) / (Math.pow(1 + monthlyRate, nMonths) - 1);
-      const totalPayable = emi * nMonths;
-      const totalInterest = totalPayable - p;
-
-      return `### 🏦 Loan EMI Calculation
-
-• **Loan Principal**: ${fmtInr(p)}
-• **Interest Rate**: ${r}% p.a.
-• **Tenure**: ${nYears} Years (${nMonths} months)
-
----
-
-| Metric | Amount |
-|---|---|
-| **Monthly EMI** | **${fmtInr(emi)}/month** |
-| **Principal Amount** | **${fmtInr(p)}** |
-| **Total Interest Payable** | **${fmtInr(totalInterest)}** |
-| **Total Payment (Principal + Interest)** | **${fmtInr(totalPayable)}** |
-
-💡 *Prepaying just 1 extra EMI each year can shave off 3-4 years from a 20-year home loan!*`;
+  const plan = String.raw`\b(sip|emi)\s+(?:(?:of|for)\s+)?${amount}\s+`;
+  const periodFirst = match(plan + String.raw`(?:for\s+)?${years}\s+(?:at\s+)?${rate}`);
+  const rateFirst = match(plan + String.raw`(?:at\s+)?${rate}\s+(?:for\s+)?${years}`);
+  if (periodFirst || rateFirst) {
+    const entry = periodFirst || rateFirst;
+    const principal = parseRupees(entry[2]);
+    const y = Number(periodFirst?.[3] ?? rateFirst[4]);
+    const r = Number(periodFirst?.[4] ?? rateFirst[3]);
+    if (!principal || !validPeriod(y, r)) return null;
+    if (entry[1] === "emi") {
+      return "### Loan EMI\n\nEqual monthly payment: **" + fmtInr(calculateEMI(principal, r, y * 12)) +
+        "** over " + y * 12 + " months, assuming a fixed annual rate of " + r + "% and no fees.";
     }
-  }
-
-  // 6. Percentages: "25% of 85000"
-  const pctMatch = q.match(/(\d+(?:\.\d+)?)\s*%\s*(?:of)\s*(?:₹|rs\.?\s*)?(\d[\d,]*(?:\.\d+)?)/i);
-  if (pctMatch) {
-    const p = parseFloat(pctMatch[1]);
-    const total = parseFloat(pctMatch[2].replace(/,/g, ""));
-    const res = (p / 100) * total;
-    return `### 🧮 Calculation Result\n\n**${p}% of ${total.toLocaleString("en-IN")}** = **${res.toLocaleString("en-IN")}**\n\n*Formula:* \`(${p} / 100) × ${total} = ${res}\``;
+    return "### SIP projection\n\nProjected value: **" + fmtInr(calculateSIPFutureValue(principal, r, y)) +
+      "** after " + y + " years of month-end contributions at an assumed " + r + "% annual return, compounded monthly. Returns can vary.";
   }
 
   // 7. Arithmetic: "45000 + 12000 - 8000"
@@ -585,7 +382,6 @@ function generateSuggestedPrompts(query = "", responseText = "") {
 }
 
 module.exports = {
-  queryCache,
   solveFinancialMath,
   getInstantCasualResponse,
   getFrequentFinanceResponse,

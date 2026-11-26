@@ -15,11 +15,11 @@ const {
 } = require("../controllers/advisorAuthController");
 
 // ── Rate limiters ─────────────────────────────────────────────────────────────
-const isTest = process.env.NODE_ENV === "test";
+const isDev = process.env.NODE_ENV !== "production";
 
 const registerLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isTest ? 1000 : 30,
+  max: isDev ? 1000 : 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Too many registration attempts. Please try again in 15 minutes." },
@@ -27,7 +27,7 @@ const registerLimiter = rateLimit({
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isTest ? 1000 : 50,
+  max: isDev ? 1000 : 50,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Too many login attempts. Please try again in 15 minutes." },
@@ -35,7 +35,7 @@ const loginLimiter = rateLimit({
 
 const otpLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isTest ? 1000 : 10,
+  max: isDev ? 1000 : 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Too many OTP requests. Please try again in 15 minutes." },

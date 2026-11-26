@@ -18,6 +18,7 @@ const onboarding = async (req, res) => {
       onboardedAt:       new Date(),
     };
 
+    if (req.body.fullName) updates.fullName = req.body.fullName;
     if (dob)            updates.dob           = dob;
     if (gender)         updates.gender        = gender;
     if (occupation)     updates.occupation    = occupation;
@@ -77,11 +78,11 @@ const getProfile = async (req, res) => {
 // ── PUT /api/user/update ──────────────────────────────────────────────────────
 const updateProfile = async (req, res) => {
   try {
-    const forbidden = ["password", "passwordHash", "email", "googleId", "role", "isEmailVerified"];
-    forbidden.forEach(f => delete req.body[f]);
-
-    const { income, riskProfile, location, ...rest } = req.body;
-    const updates = { ...rest };
+    const { income, riskProfile, location } = req.body;
+    const updates = {};
+    for (const field of ["fullName", "mobile", "profilePicture", "dob", "gender", "occupation", "maritalStatus", "dependents", "city", "state", "country", "expenses", "investments", "goals", "loans"]) {
+      if (Object.hasOwn(req.body, field)) updates[field] = req.body[field];
+    }
 
     if (location) {
       if (location.city)    updates.city    = location.city;

@@ -11,9 +11,9 @@ import { useAuth } from "../auth/AuthContext";
 import {
   type UserProfile, type ExpenseEntry, type FinancialGoalEntry,
   type InvestmentEntry, type LoanEntry,
-  emptyProfile, saveUserProfile,
+  emptyProfile, persistProfile,
 } from "../data/userProfile";
-import { syncProfileToFinancialData } from "../data/syncProfile";
+
 import { userAPI } from "../services/api";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -71,9 +71,9 @@ export function Onboarding() {
       if (draft) return JSON.parse(draft) as UserProfile;
     } catch { /* ignore */ }
     return emptyProfile(user?.id ?? "demo_001", {
-      name:  user?.name,
+      name:  user?.fullName,
       email: user?.email,
-      mobile: user?.phone,
+      mobile: user?.mobile,
     });
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -87,7 +87,6 @@ export function Onboarding() {
   ) => {
     setProfile(p => {
       const updated = { ...p, [key]: value };
-      try { localStorage.setItem(DRAFT_KEY, JSON.stringify(updated)); } catch { /* ignore */ }
       return updated;
     });
     setErrors(e => ({ ...e, [key]: "" }));
@@ -107,11 +106,12 @@ export function Onboarding() {
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!["image/png","image/jpeg","image/webp"].includes(file.type) || file.size > 262144) { setErrors(e => ({...e, avatar: "Choose a PNG, JPEG or WebP image up to 256 KB."})); return; }
     const reader = new FileReader();
     reader.onload = (ev) => {
       const dataUrl = ev.target?.result as string;
       patchPersonal("avatarDataUrl", dataUrl);
-      updateUser({ avatar: dataUrl });
+
     };
     reader.readAsDataURL(file);
   }
@@ -146,8 +146,7 @@ export function Onboarding() {
       setDir(1);
       setStep(s => {
         const n = s + 1;
-        try { localStorage.setItem(DRAFT_KEY + "_step", String(n)); } catch { /* ignore */ }
-        return n;
+          return n;
       });
     } else {
       handleFinish();
@@ -158,7 +157,6 @@ export function Onboarding() {
     setDir(-1);
     setStep(s => {
       const n = Math.max(0, s - 1);
-      try { localStorage.setItem(DRAFT_KEY + "_step", String(n)); } catch { /* ignore */ }
       return n;
     });
   }
@@ -174,51 +172,10 @@ export function Onboarding() {
   };
 
   try {
-    // ✅ Send data to the backend first
-    await userAPI.onboarding({
-      dob:           final.personal.dob,
-      gender:        final.personal.gender,
-      occupation:    final.personal.occupation,
-      maritalStatus: final.personal.maritalStatus,
-      dependents:    final.personal.dependents,
-      city:          final.personal.city,
-      state:         final.personal.state,
-      country:       final.personal.country,
-      mobile:        final.personal.mobile,
-      income: {
-        monthly:           final.income.monthlyIncome,
-        source:            final.income.incomeSource,
-        additionalMonthly: final.income.additionalIncome,
-        annualGrowthPct:   final.income.salaryGrowthPct,
-      },
-      riskProfile: {
-        tolerance:        final.riskProfile.tolerance,
-        experience:       final.riskProfile.experience,
-        timeHorizonYears: final.riskProfile.timeHorizonYears,
-        investmentStyle:  final.riskProfile.investmentStyle,
-      },
-      expenses:    final.expenses,
-      investments: final.investments,
-      goals:       final.goals,
-      loans:       final.loans,
-    });
-
-    // ✅ Update the auth context so ProtectedRoute sees isProfileComplete = true
-    updateUser({ isProfileComplete: true });
-
-    // Save locally too (for offline access / speed)
-    saveUserProfile(final);
-    syncProfileToFinancialData(final);
-
-    // Clear draft
+    const saved = await persistProfile(final, true);
+    updateUser(saved);
     localStorage.removeItem(DRAFT_KEY);
     localStorage.removeItem(DRAFT_KEY + "_step");
-
-    updateUser({
-      isProfileComplete: true,
-      profilePicture: final.personal.avatarDataUrl,
-    });
-
     navigate("/dashboard", { replace: true });
 
   } catch (err: any) {
@@ -242,6 +199,7 @@ export function Onboarding() {
         />
 
         {/* Avatar */}
+        {errors.avatar && <p role="alert">{errors.avatar}</p>}
         <div className="flex flex-col items-center gap-3 pb-2">
           <div
             className="w-20 h-20 rounded-full bg-gradient-to-br from-[#1A5F3D] to-[#3FAF7D] flex items-center justify-center text-white text-2xl font-bold cursor-pointer overflow-hidden border-4 border-white shadow-lg"

@@ -1,8 +1,6 @@
 // ── Run: node db/migrate.js ───────────────────────────────────────────────────
 // Creates all tables. Safe to re-run (uses IF NOT EXISTS).
 
-require("../config/env").loadEnv();
-const db = require("../config/db");
 
 const SQL = `
 
@@ -12,15 +10,35 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- ── ENUM types ───────────────────────────────────────────────────────────────
 DO $$ BEGIN
   CREATE TYPE user_provider      AS ENUM ('email','google');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE user_role          AS ENUM ('user','admin');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE gender_type        AS ENUM ('male','female','other','prefer_not_to_say');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE marital_type       AS ENUM ('single','married','divorced','widowed');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE income_source_type AS ENUM ('salaried','self_employed','business','freelance','other');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE risk_tolerance     AS ENUM ('low','medium','high');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE risk_experience    AS ENUM ('beginner','intermediate','expert');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE risk_style         AS ENUM ('conservative','balanced','aggressive');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE content_type_enum  AS ENUM ('webinar','news','video');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE content_status     AS ENUM ('upcoming','completed','cancelled');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
   CREATE TYPE content_category   AS ENUM ('market','tax','insurance','planning','general');
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
@@ -162,21 +180,19 @@ EXCEPTION WHEN duplicate_object THEN null; END $$;
 `;
 
 async function migrate() {
-  console.log("🔄 Running migrations...");
+  const db = require("../config/db");
   try {
-    await db.query(SQL);
-    console.log("✅ All tables created / verified successfully.");
-    console.log("\n  Tables:");
-    console.log("    users    — user accounts + full financial profile (JSONB arrays)");
-    console.log("    admins   — admin accounts");
-    console.log("    content  — webinars, news, videos");
-    console.log("\nNext: run  node db/seed.js  to create the first admin.\n");
-  } catch (err) {
-    console.error("❌ Migration failed:", err.message);
-    console.error(err);
+    await db.transaction(client => client.query(SQL));
   } finally {
     await db.pool.end();
   }
 }
 
-migrate();
+if (require.main === module) {
+  migrate().catch(error => {
+    console.error("Migration failed", error.code || error.name);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { migrate, SQL };

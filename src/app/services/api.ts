@@ -7,7 +7,7 @@
 const BASE = (import.meta as any).env?.VITE_API_URL || "/api";
 
 // ── Core fetch wrapper ────────────────────────────────────────────────────────
-async function apiFetch<T = unknown>(
+export async function apiFetch<T = unknown>(
   path: string,
   options: RequestInit = {}
 ): Promise<{ success: boolean; message: string; data: T }> {
@@ -21,10 +21,15 @@ async function apiFetch<T = unknown>(
     headers,
     credentials: "include",
   });
-  const json = await res.json();
+  const json = await res.json().catch(() => {
+    throw new Error("The server returned an unreadable response. Please retry.");
+  });
 
   if (!res.ok) {
-    const err: any = new Error(json.message || "Request failed");
+    const validationMessages = Array.isArray(json.errors)
+      ? [...new Set(json.errors.map((item: { msg?: string }) => item.msg).filter(Boolean))].join(" ")
+      : "";
+    const err: any = new Error(validationMessages || json.message || "Request failed");
     err.status = res.status;
     err.data   = json;
     throw err;

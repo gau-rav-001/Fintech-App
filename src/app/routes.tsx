@@ -27,8 +27,7 @@ import {
 } from "./auth/ProtectedRoute";
 import { AdvisorRoute, AdvisorGuestRoute } from "./auth/AdvisorRoute";
 
-// Import mockData to trigger auto-seed on app load
-import "./data/mockData";
+
 
 function ScrollToTop() {
   const { pathname } = useLocation();

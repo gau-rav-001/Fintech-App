@@ -696,7 +696,7 @@ const servicesMeta = [
 
 export function Services() {
   const { language } = useLanguage();
-  const { isAuthenticated } = useAuth();
+  const { isUserAuthenticated: isAuthenticated } = useAuth();
   const location = useLocation();
   const [highlightedSlug, setHighlightedSlug] = useState<string | null>(null);
   const cardsRef = useRef<HTMLDivElement>(null);

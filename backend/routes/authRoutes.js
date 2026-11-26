@@ -4,7 +4,7 @@ const passport    = require("passport");
 const { body }    = require("express-validator");
 const rateLimit   = require("express-rate-limit");
 const validate         = require("../middleware/validate");
-const { authenticate } = require("../middleware/auth");
+const { authenticate, requireUser } = require("../middleware/auth");
 const {
   signup, login, verifyOTPHandler, resendOTP,
   forgotPassword, resetPassword,
@@ -12,26 +12,27 @@ const {
 } = require("../controllers/authController");
 
 // ── Rate limiters ─────────────────────────────────────────────────────────────
+const isDev = process.env.NODE_ENV !== "production";
 const otpLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: isDev ? 1000 : 5,
   message: { success: false, message: "Too many OTP requests. Try again in 15 minutes." },
 });
 
 // Stricter limit for password reset — prevents abuse
 const resetLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 3,
+  max: isDev ? 1000 : 3,
   message: { success: false, message: "Too many reset requests. Try again in 15 minutes." },
 });
 
 // ── Validation rules ──────────────────────────────────────────────────────────
 const signupRules = [
-  body("fullName").trim().notEmpty().withMessage("Full name is required."),
+  body("fullName").isString().trim().isLength({ min: 1, max: 255 }).matches(/^[\p{L}\p{M}][\p{L}\p{M}\p{Zs}.\u2019\x27-]*$/u).withMessage("Full name is required."),
   body("email").isEmail().normalizeEmail().withMessage("Valid email is required."),
   body("mobile").optional().matches(/^\+?[\d\s\-]{7,15}$/).withMessage("Invalid mobile number."),
   body("password")
-    .isLength({ min: 8 }).withMessage("Password must be at least 8 characters.")
+    .isString().isLength({ min: 8 }).custom(value => Buffer.byteLength(value, "utf8") <= 72).withMessage("Password must be at least 8 characters.")
     .matches(/[A-Z]/).withMessage("Password must contain at least one uppercase letter.")
     .matches(/[0-9]/).withMessage("Password must contain at least one number.")
     .matches(/[^A-Za-z0-9]/).withMessage("Password must contain at least one special character."),
@@ -50,7 +51,7 @@ const otpRules = [
 const resetPasswordRules = [
   body("token").notEmpty().withMessage("Reset token is required."),
   body("password")
-    .isLength({ min: 8 }).withMessage("Password must be at least 8 characters.")
+    .isString().isLength({ min: 8 }).custom(value => Buffer.byteLength(value, "utf8") <= 72).withMessage("Password must be at least 8 characters.")
     .matches(/[A-Z]/).withMessage("Password must contain at least one uppercase letter.")
     .matches(/[0-9]/).withMessage("Password must contain at least one number.")
     .matches(/[^A-Za-z0-9]/).withMessage("Password must contain at least one special character."),
@@ -71,10 +72,11 @@ router.post("/forgot-password", resetLimiter,
 router.post("/reset-password", resetPasswordRules, validate, resetPassword);
 
 // ── Google OAuth ──────────────────────────────────────────────────────────────
-router.get("/google",
+const requireGoogle = (req, res, next) => passport._strategy("google") ? next() : res.status(503).json({ success: false, message: "Google sign-in is unavailable. Use email sign-in." });
+router.get("/google", requireGoogle,
   passport.authenticate("google", { scope: ["profile", "email"], session: false }));
 
-router.get("/google/callback",
+router.get("/google/callback", requireGoogle,
   passport.authenticate("google", {
     session:         false,
     failureRedirect: `${process.env.CLIENT_URL}/login?error=google`,
@@ -82,7 +84,7 @@ router.get("/google/callback",
   googleCallback);
 
 // ── Protected ─────────────────────────────────────────────────────────────────
-router.get("/me",      authenticate, getMe);
-router.post("/logout", authenticate, logout);
+router.get("/me",      authenticate, requireUser, getMe);
+router.post("/logout", authenticate, requireUser, logout);
 
 module.exports = router;

@@ -10,8 +10,6 @@
 //
 // Fully additive, non-destructive, and idempotent (safe to re-run).
 
-require("dotenv").config({ path: require("path").join(__dirname, "../.env") });
-const db = require("../config/db");
 
 const SQL = `
 -- ── 1. Extensions ────────────────────────────────────────────────────────────
@@ -216,35 +214,19 @@ EXCEPTION WHEN duplicate_object THEN null; END $$;
 `;
 
 async function migrate() {
-  console.log("🔄 Running Phase 7.2 Database Migration...");
+  const db = require("../config/db");
   try {
-    await db.transaction(async (client) => {
-      await client.query(SQL);
-    });
-
-    console.log("✅ Phase 7.2 Database objects created / verified successfully.\n");
-    console.log("  New Tables:");
-    console.log("    • notifications          — Multi-actor in-app notification center");
-    console.log("    • advisor_messages       — Direct messaging between active advisor and client");
-    console.log("    • advisor_notes          — Advisor notes with strict private vs shared visibility");
-    console.log("    • advisor_recommendations — Structured advice with action items and client acknowledgement");
-    console.log("    • appointments           — Consultation scheduling with IANA timezone preservation");
-    console.log("\n  New Triggers:");
-    console.log("    • trg_advisor_messages_updated_at");
-    console.log("    • trg_advisor_notes_updated_at");
-    console.log("    • trg_advisor_recommendations_updated_at");
-    console.log("    • trg_appointments_updated_at\n");
-  } catch (err) {
-    console.error("❌ Phase 7.2 Migration failed:", err.message);
-    console.error(err);
-    process.exit(1);
+    await db.transaction(client => client.query(SQL));
   } finally {
     await db.pool.end();
   }
 }
 
 if (require.main === module) {
-  migrate();
+  migrate().catch(error => {
+    console.error("Migration failed", error.code || error.name);
+    process.exitCode = 1;
+  });
 }
 
 module.exports = { migrate, SQL };

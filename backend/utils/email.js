@@ -3,6 +3,7 @@ const nodemailer = require("nodemailer");
 
 const emailMode = process.env.EMAIL_MODE || (process.env.NODE_ENV !== "production" ? "mock" : "real");
 const isMock = emailMode === "mock";
+if (isMock && process.env.NODE_ENV === "production") throw new Error("Production email delivery requires a configured mail transport.");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DEV — Ethereal
@@ -18,10 +19,6 @@ async function getEtherealTransporter() {
     secure: false,
     auth: { user: testAccount.user, pass: testAccount.pass },
   });
-  console.log("\n📬 Ethereal test account created:");
-  console.log("   User:", testAccount.user);
-  console.log("   Pass:", testAccount.pass);
-  console.log("   Web:  https://ethereal.email/messages  (view sent emails)\n");
   return _etherealTransporter;
 }
 
@@ -67,32 +64,42 @@ async function sendMail(to, subject, text, html) {
   const from = process.env.EMAIL_FROM
     || (isMock ? "SmartFinance <test@smartfinance.dev>" : `"SmartFinance" <${process.env.EMAIL_USER}>`);
 
-  if (isMock) {
-    const transport = await getEtherealTransporter();
-    const info      = await transport.sendMail({ from, to, subject, text, html });
-    const previewUrl = nodemailer.getTestMessageUrl(info);
-    console.log(`\n${"─".repeat(60)}`);
-    console.log(`📨 Email sent (Ethereal preview):`);
-    console.log(`   To     : ${to}`);
-    console.log(`   Subject: ${subject}`);
-    console.log(`   Preview: ${previewUrl}`);
-    console.log(`${"─".repeat(60)}\n`);
-    return info;
+  const isDev = process.env.NODE_ENV !== "production" && process.env.NODE_ENV !== "test";
+
+  if (!isMock) {
+    try {
+      const transport = getProdTransporter();
+      return await transport.sendMail({ from, to, subject, text, html });
+    } catch (err) {
+      if (process.env.NODE_ENV === "production") throw err;
+      console.warn(`⚠️  Real email delivery failed in dev (${err.message}). Falling back to dev console/Ethereal.`);
+    }
   }
 
-  const transport = getProdTransporter();
-  return transport.sendMail({ from, to, subject, text, html });
+  try {
+    const transport = await getEtherealTransporter();
+    const info = await transport.sendMail({ from: "SmartFinance <test@smartfinance.dev>", to, subject, text, html });
+    if (isDev) {
+      const previewUrl = nodemailer.getTestMessageUrl(info);
+      console.log(`📨 [DEV EMAIL] To: ${to} | Subject: ${subject}`);
+      if (previewUrl) console.log(`   Preview: ${previewUrl}`);
+      console.log(`   Body: ${text.replace(/\n/g, " ")}`);
+    }
+    return info;
+  } catch (fallbackErr) {
+    if (process.env.NODE_ENV === "production") throw fallbackErr;
+    if (isDev) {
+      console.log(`📨 [DEV EMAIL CONSOLE] To: ${to} | Subject: ${subject}`);
+      console.log(`   Body: ${text.replace(/\n/g, " ")}`);
+    }
+    return { messageId: `dev-console-${Date.now()}` };
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OTP email
 // ─────────────────────────────────────────────────────────────────────────────
 async function sendOTPEmail(toEmail, otp, userName = "User") {
-  if (isMock) {
-    console.log(`\n${"─".repeat(60)}`);
-    console.log(`🔑  OTP for ${toEmail}: ${otp}`);
-    console.log(`${"─".repeat(60)}\n`);
-  }
 
   await sendMail(
     toEmail,
@@ -140,12 +147,6 @@ async function sendWelcomeEmail(toEmail, userName = "User") {
 // Password reset email
 // ─────────────────────────────────────────────────────────────────────────────
 async function sendPasswordResetEmail(toEmail, resetLink, userName = "User") {
-  if (isDev) {
-    console.log(`\n${"─".repeat(60)}`);
-    console.log(`🔒  Password reset link for ${toEmail}:`);
-    console.log(`    ${resetLink}`);
-    console.log(`${"─".repeat(60)}\n`);
-  }
 
   await sendMail(
     toEmail,
@@ -186,11 +187,6 @@ async function sendPasswordResetEmail(toEmail, resetLink, userName = "User") {
 // Advisor OTP verification email
 // ─────────────────────────────────────────────────────────────────────────────
 async function sendAdvisorOTPEmail(toEmail, otp, advisorName = "Advisor") {
-  if (isDev) {
-    console.log(`\n${"─".repeat(60)}`);
-    console.log(`🔑  Advisor Verification OTP for ${toEmail}: ${otp}`);
-    console.log(`${"─".repeat(60)}\n`);
-  }
 
   await sendMail(
     toEmail,
@@ -234,13 +230,6 @@ async function sendAdvisorInvitationEmail({
     ? `This invitation link is valid until <strong>${new Date(expiresAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</strong> (7 days).`
     : "This invitation link is valid for 7 days.";
 
-  if (isDev) {
-    console.log(`\n${"─".repeat(60)}`);
-    console.log(`✉️  Client Invitation Email to ${toEmail}:`);
-    console.log(`   Advisor: ${advisorName} (${firmName || "Independent"})`);
-    console.log(`   Link:    ${inviteUrl}`);
-    console.log(`${"─".repeat(60)}\n`);
-  }
 
   await sendMail(
     toEmail,
@@ -298,13 +287,6 @@ async function sendAdvisorConnectionRequestEmail({
        </div>`
     : "";
 
-  if (isDev) {
-    console.log(`\n${"─".repeat(60)}`);
-    console.log(`✉️  Advisor Connection Request Email to ${toEmail}:`);
-    console.log(`   Advisor: ${advisorName} (${firmName || "Independent"})`);
-    if (notes) console.log(`   Notes:   ${notes}`);
-    console.log(`${"─".repeat(60)}\n`);
-  }
 
   await sendMail(
     toEmail,
@@ -348,13 +330,6 @@ async function sendAdvisorConnectionAcceptedEmail({
 }) {
   const clientDisplay = clientEmail ? `${clientName} (${clientEmail})` : clientName;
 
-  if (isDev) {
-    console.log(`\n${"─".repeat(60)}`);
-    console.log(`✉️  Advisor Connection Accepted Email to ${toEmail}:`);
-    console.log(`   Advisor: ${advisorName}`);
-    console.log(`   Client:  ${clientDisplay}`);
-    console.log(`${"─".repeat(60)}\n`);
-  }
 
   await sendMail(
     toEmail,
@@ -405,14 +380,6 @@ async function sendAdvisorConnectionRejectedEmail({
        </div>`
     : "";
 
-  if (isDev) {
-    console.log(`\n${"─".repeat(60)}`);
-    console.log(`✉️  Advisor Connection Rejected Email to ${toEmail}:`);
-    console.log(`   Advisor: ${advisorName}`);
-    console.log(`   Client:  ${clientDisplay}`);
-    if (rejectionReason) console.log(`   Reason:  ${rejectionReason}`);
-    console.log(`${"─".repeat(60)}\n`);
-  }
 
   await sendMail(
     toEmail,
@@ -458,14 +425,6 @@ async function sendAdvisorRelationshipTerminatedEmail({
        </div>`
     : "";
 
-  if (isDev) {
-    console.log(`\n${"─".repeat(60)}`);
-    console.log(`✉️  Advisor Relationship Terminated Email to ${toEmail}:`);
-    console.log(`   Advisor: ${advisorName}`);
-    console.log(`   Client:  ${clientDisplay}`);
-    if (reason) console.log(`   Reason:  ${reason}`);
-    console.log(`${"─".repeat(60)}\n`);
-  }
 
   await sendMail(
     toEmail,

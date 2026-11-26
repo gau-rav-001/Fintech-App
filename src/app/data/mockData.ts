@@ -281,4 +281,3 @@ function defaultAdminContent(): AdminContent {
 }
 
 // ── Auto-seed on import ───────────────────────────────────────────────────────
-seedDemoFinancialData();

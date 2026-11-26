@@ -1,3 +1,4 @@
+import { receiveProfile } from "../data/userProfile";
 // src/app/auth/AuthContext.tsx
 // Fix #9: isAuthenticated is now split into isUserAuthenticated and isAdminAuthenticated.
 //         A logged-in admin no longer makes isAuthenticated true for user-only guards.
@@ -44,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     Promise.all([restoreSession(), restoreAdminSession()])
       .then(([u, a]) => {
+        receiveProfile(u);
         setUserState(u);
         setAdminUserState(a);
       })
@@ -51,11 +53,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsLoading(false));
   }, []);
 
-  const setUser = useCallback((u: AuthUser | null) => setUserState(u), []);
+  const setUser = useCallback((u: AuthUser | null) => { receiveProfile(u); setUserState(u); }, []);
   const setAdminUser = useCallback((u: AuthUser | null) => setAdminUserState(u), []);
 
   const logout = useCallback(async () => {
     try { await serviceLogout(); } catch {}
+    receiveProfile(null);
     setUserState(null);
   }, []);
 

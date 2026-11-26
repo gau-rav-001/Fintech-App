@@ -5,9 +5,9 @@ import { AuthProvider } from "./app/auth/AuthContext";
 import { AdvisorAuthProvider } from "./app/auth/AdvisorAuthContext";
 import { ThemeProvider } from "./app/ThemeContext";
 import "./styles/index.css";
-import { seedDemoProfile } from "./app/data/seedDemoProfile";
 
-seedDemoProfile();
+
+
 
 createRoot(document.getElementById("root")!).render(
   <ThemeProvider>
